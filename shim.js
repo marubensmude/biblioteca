@@ -24,6 +24,13 @@
   .lg-box input{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:11px 12px;font-size:16px;text-transform:none;letter-spacing:0;color:var(--ink)}
   .lg-box .msg{font-size:13.5px;min-height:1.2em}
   .lg-box .msg.err{color:var(--bad)} .lg-box .msg.ok{color:var(--ok)}
+  .lg-pass{position:relative;display:block}
+  .lg-pass input{width:100%;box-sizing:border-box;padding-right:46px}
+  .lg-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;cursor:pointer;padding:6px;color:var(--muted);line-height:0}
+  .lg-eye:hover{color:var(--ink)}
+  .lg-help{border:1px solid var(--gold-soft);background:var(--gold-soft);border-radius:8px;padding:12px 14px;font-size:13.5px;line-height:1.5;color:var(--ink)}
+  .lg-help ol{margin:6px 0 0;padding-left:18px}
+  .lg-links{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
   .lg-box .alt{background:none;border:0;color:var(--gold-ink);cursor:pointer;font:inherit;font-size:13.5px;text-decoration:underline;padding:0;align-self:flex-start}
   .acct{position:relative}
   .acct-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:8px;display:flex;flex-direction:column;gap:4px;min-width:240px}
@@ -32,6 +39,8 @@
   .acct-menu small{color:var(--muted);padding:4px 10px}`;
   const st=document.createElement("style"); st.textContent=css; document.head.appendChild(st);
 
+  const OLHO="<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>", OLHO_FECHADO="<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 3l18 18\"/><path d=\"M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.3-.5 4.6-1.2\"/><path d=\"M9.9 9.9a3 3 0 0 0 4.2 4.2\"/></svg>";
+  const APELIDOS={mario:"marubens","mario rubens":"marubens",mariorubens:"marubens"};
   function telaLogin(modo){
     let el=document.getElementById("lgWrap"); if(!el){ el=document.createElement("div"); el.id="lgWrap"; el.className="lg-wrap"; document.body.appendChild(el) }
     const criar=modo==="criar";
@@ -40,20 +49,26 @@
       <div><span class="eyebrow">Ex libris · acervo pessoal</span><h1>Biblioteca <em>Mário Rubens</em></h1></div>
       <form id="lgForm" autocomplete="on">
         <label>Login<input id="lgUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
-        <label>Senha<input id="lgPass" name="password" type="password" autocomplete="${criar?"new-password":"current-password"}" required minlength="6"></label>
-        ${criar?`<label>Repita a senha<input id="lgPass2" type="password" autocomplete="new-password" required minlength="6"></label>`:""}
+        <label>Senha<span class="lg-pass"><input id="lgPass" name="password" type="password" autocomplete="${criar?"new-password":"current-password"}" required minlength="6"><button class="lg-eye" type="button" data-eye="lgPass" aria-label="Mostrar senha" title="Mostrar senha">${OLHO}</button></span></label>
+        ${criar?`<label>Repita a senha<span class="lg-pass"><input id="lgPass2" type="password" autocomplete="new-password" required minlength="6"><button class="lg-eye" type="button" data-eye="lgPass2" aria-label="Mostrar senha" title="Mostrar senha">${OLHO}</button></span></label>`:""}
         <button class="btn primary" type="submit" id="lgBtn">${criar?"Criar meu acesso":"Entrar"}</button>
         <div class="msg" id="lgMsg" role="status"></div>
-        <button class="alt" type="button" id="lgAlt">${criar?"Já tenho acesso: entrar":"Primeiro acesso? Criar minha senha"}</button>
+        <div class="lg-links"><button class="alt" type="button" id="lgAlt">${criar?"Já tenho acesso: entrar":"Primeiro acesso? Criar minha senha"}</button>${criar?"":`<button class="alt" type="button" id="lgForgot">Esqueci minha senha</button>`}</div>
+        <div id="lgHelp"></div>
       </form>
       <p class="note">Acesso restrito à família. Ex libris, acervo pessoal.</p>
     </div>`;
     document.getElementById("lgAlt").onclick=()=>telaLogin(criar?"entrar":"criar");
+    el.querySelectorAll("[data-eye]").forEach(b=>b.onclick=()=>{const i=document.getElementById(b.dataset.eye); const ver=i.type==="password"; i.type=ver?"text":"password"; b.innerHTML=ver?OLHO_FECHADO:OLHO; b.title=b.ariaLabel=ver?"Ocultar senha":"Mostrar senha"; i.focus()});
+    const fg=document.getElementById("lgForgot"); if(fg) fg.onclick=()=>{
+      const h=document.getElementById("lgHelp"); if(h.innerHTML){h.innerHTML="";return}
+      h.innerHTML=`<div class="lg-help"><b>Como recuperar a senha</b><br>Os logins da biblioteca não usam e-mail real, por isso a nova senha é liberada pelo administrador (Mário):<ol><li>No console do Firebase, projeto <i>biblioteca-mario-rubens</i>, abra <b>Authentication &gt; Usuários</b>.</li><li>Exclua o usuário do login esquecido (os livros não são afetados).</li><li>Se a criação de acessos estiver desativada, reative-a por um momento em <b>Configurações &gt; Ações do usuário</b>.</li><li>Volte aqui, toque em <b>Primeiro acesso? Criar minha senha</b> e cadastre a nova senha.</li></ol>Quem estiver logado pode trocar a senha a qualquer momento em <b>Conta &gt; Trocar minha senha</b>.</div>`;
+    };
     document.getElementById("lgForm").onsubmit=async e=>{
       e.preventDefault();
-      const login=document.getElementById("lgUser").value.trim().toLowerCase(), senha=document.getElementById("lgPass").value, msg=document.getElementById("lgMsg"), btn=document.getElementById("lgBtn");
+      const digitado=document.getElementById("lgUser").value.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""), login=APELIDOS[digitado]||digitado, senha=document.getElementById("lgPass").value, msg=document.getElementById("lgMsg"), btn=document.getElementById("lgBtn");
       msg.className="msg"; msg.textContent="";
-      if(!PERMITIDOS.includes(login)){ msg.className="msg err"; msg.textContent="Login não autorizado."; return }
+      if(!PERMITIDOS.includes(login)){ msg.className="msg err"; msg.textContent="Login não autorizado. Confira o login combinado (não é o e-mail)."; return }
       if(criar&&senha!==document.getElementById("lgPass2").value){ msg.className="msg err"; msg.textContent="As senhas não conferem."; return }
       btn.disabled=true; btn.textContent="Aguarde…";
       try{

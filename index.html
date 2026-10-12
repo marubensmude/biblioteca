@@ -286,7 +286,7 @@ select.f{border:1px solid var(--line);background:var(--surface);border-radius:6p
 <body>
 <div class="wrap">
   <header class="head">
-    <div class="brandrow"><img class="mark" src="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"%3E%3Crect width="64" height="64" rx="14" fill="#111111"/%3E%3Crect x="12" y="17" width="9" height="33" rx="1" fill="#C9A45C"/%3E%3Crect x="12" y="22" width="9" height="2" fill="#111111" opacity=".55"/%3E%3Crect x="12" y="43" width="9" height="2" fill="#111111" opacity=".55"/%3E%3Crect x="23" y="11" width="8" height="39" rx="1" fill="#E8D19A"/%3E%3Crect x="23" y="16" width="8" height="2" fill="#111111" opacity=".45"/%3E%3Crect x="23" y="43" width="8" height="2" fill="#111111" opacity=".45"/%3E%3Crect x="33" y="20" width="9" height="30" rx="1" fill="#C9A45C"/%3E%3Crect x="33" y="25" width="9" height="2" fill="#111111" opacity=".55"/%3E%3Crect x="44.5" y="18" width="8" height="32" rx="1" fill="#9C7A35" transform="rotate(16 52.5 50)"/%3E%3Crect x="9" y="50" width="46" height="3.5" rx="1.75" fill="#E8D19A"/%3E%3C/svg%3E" alt="" width="56" height="56">
+    <div class="brandrow"><svg class="mark" role="img" aria-label="Biblioteca Mário Rubens" width="56" height="56" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#111111"/><rect x="12" y="17" width="9" height="33" rx="1" fill="#C9A45C"/><rect x="12" y="22" width="9" height="2" fill="#111111" opacity=".55"/><rect x="12" y="43" width="9" height="2" fill="#111111" opacity=".55"/><rect x="23" y="11" width="8" height="39" rx="1" fill="#E8D19A"/><rect x="23" y="16" width="8" height="2" fill="#111111" opacity=".45"/><rect x="23" y="43" width="8" height="2" fill="#111111" opacity=".45"/><rect x="33" y="20" width="9" height="30" rx="1" fill="#C9A45C"/><rect x="33" y="25" width="9" height="2" fill="#111111" opacity=".55"/><rect x="44.5" y="18" width="8" height="32" rx="1" fill="#9C7A35" transform="rotate(16 52.5 50)"/><rect x="9" y="50" width="46" height="3.5" rx="1.75" fill="#E8D19A"/></svg>
     <div class="brand">
       <span class="eyebrow">Ex libris · acervo pessoal</span>
       <h1>Biblioteca <em>Mário Rubens</em></h1>
@@ -1088,6 +1088,20 @@ function buildSelecao(arr,groups,meta){
     kpis:[[fmtN(n),"Livros"],[fmtN(autores),"Autores"],[pct(lidos,n)+"%","Lidos"],[meta.flat?"-":fmtN(groups.length),"Grupos"]],secoes};
 }
 
+
+/* ---- Logomarca para PDF e Word (SVG convertido em PNG) ---- */
+const LOGO_SVG="<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\"><rect width=\"64\" height=\"64\" rx=\"14\" fill=\"#111111\"/><rect x=\"12\" y=\"17\" width=\"9\" height=\"33\" rx=\"1\" fill=\"#C9A45C\"/><rect x=\"12\" y=\"22\" width=\"9\" height=\"2\" fill=\"#111111\" opacity=\".55\"/><rect x=\"12\" y=\"43\" width=\"9\" height=\"2\" fill=\"#111111\" opacity=\".55\"/><rect x=\"23\" y=\"11\" width=\"8\" height=\"39\" rx=\"1\" fill=\"#E8D19A\"/><rect x=\"23\" y=\"16\" width=\"8\" height=\"2\" fill=\"#111111\" opacity=\".45\"/><rect x=\"23\" y=\"43\" width=\"8\" height=\"2\" fill=\"#111111\" opacity=\".45\"/><rect x=\"33\" y=\"20\" width=\"9\" height=\"30\" rx=\"1\" fill=\"#C9A45C\"/><rect x=\"33\" y=\"25\" width=\"9\" height=\"2\" fill=\"#111111\" opacity=\".55\"/><rect x=\"44.5\" y=\"18\" width=\"8\" height=\"32\" rx=\"1\" fill=\"#9C7A35\" transform=\"rotate(16 52.5 50)\"/><rect x=\"9\" y=\"50\" width=\"46\" height=\"3.5\" rx=\"1.75\" fill=\"#E8D19A\"/></svg>";
+let logoCache=null;
+async function logoPNG(){
+  if(logoCache) return logoCache;
+  try{
+    const img=new Image(); img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(LOGO_SVG);
+    await new Promise((ok,err)=>{img.onload=ok;img.onerror=err});
+    const cv=document.createElement("canvas"); cv.width=cv.height=256; cv.getContext("2d").drawImage(img,0,0,256,256);
+    const dataURL=cv.toDataURL("image/png"); const bin=atob(dataURL.split(",")[1]); const bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    logoCache={dataURL,bytes}; return logoCache;
+  }catch(e){ return null }
+}
 /* ---- PDF (jsPDF + autotable) ---- */
 function pdfFromModel(model,jsPDF){
   const doc=new jsPDF({unit:"mm",format:"a4"}); const W=210,H=297,M=18; const T=s=>safeTxt(s);
@@ -1095,8 +1109,8 @@ function pdfFromModel(model,jsPDF){
     if(first){ doc.setFillColor(...RPT.ink); doc.rect(0,0,W,54,"F"); doc.setFillColor(...RPT.gold); doc.rect(0,54,W,1.2,"F");
       doc.setTextColor(...RPT.gold); doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.text("EX LIBRIS  ·  ACERVO PESSOAL",M,17,{charSpace:1.2});
       doc.setTextColor(255,255,255); doc.setFont("times","bold"); doc.setFontSize(25); doc.text(T(model.titulo),M,32);
-      doc.setFont("times","italic"); doc.setFontSize(12); doc.setTextColor(...RPT.gold); doc.text(T(model.subtitulo),M,42);
-    } else { doc.setTextColor(...RPT.gold); doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.text("BIBLIOTECA MÁRIO RUBENS",M,11,{charSpace:0.8});
+      doc.setFont("times","italic"); doc.setFontSize(12); doc.setTextColor(...RPT.gold); doc.text(T(model.subtitulo),M,42); if(model._logo){ try{ doc.addImage(model._logo.dataURL,"PNG",W-M-26,14,26,26) }catch(e){} }
+    } else { if(model._logo){ try{ doc.addImage(model._logo.dataURL,"PNG",M,5.5,6.5,6.5) }catch(e){} } doc.setTextColor(...RPT.gold); doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.text("BIBLIOTECA MÁRIO RUBENS",model._logo?M+8.5:M,11,{charSpace:0.8});
       doc.setTextColor(...RPT.muted); doc.setFont("helvetica","normal"); doc.text(T(model.titulo),W-M,11,{align:"right"}); doc.setDrawColor(...RPT.gold); doc.setLineWidth(0.3); doc.line(M,13.5,W-M,13.5) }
   };
   const footer=()=>{ const p=doc.internal.getCurrentPageInfo().pageNumber; doc.setDrawColor(...RPT.line); doc.setLineWidth(0.2); doc.line(M,H-14,W-M,H-14);
@@ -1147,7 +1161,7 @@ function pdfFromModel(model,jsPDF){
 
 /* ---- Word .docx (biblioteca docx) ---- */
 function docxFromModel(model,D){
-  const {Document,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,AlignmentType,BorderStyle,ShadingType,Footer,Header,PageNumber,HeadingLevel,TableLayoutType}=D;
+  const {ImageRun,Document,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,AlignmentType,BorderStyle,ShadingType,Footer,Header,PageNumber,HeadingLevel,TableLayoutType}=D;
   const GOLD="B08D45",INK="111111",GL="F3EBDD",MUT="6E685E",LINE="E2DBCC";
   const run=(t,o={})=>new TextRun({text:String(t??""),font:o.font||"Calibri",size:o.size||19,bold:o.bold,italics:o.italics,color:o.color||"222222",characterSpacing:o.cs});
   const p=(children,o={})=>new Paragraph({children:[].concat(children),pageBreakBefore:!!o.pb,alignment:o.align,spacing:{before:o.before||0,after:o.after??80},shading:o.shade?{type:ShadingType.CLEAR,fill:o.shade,color:"auto"}:undefined,border:o.border,indent:o.indent});
@@ -1162,7 +1176,7 @@ function docxFromModel(model,D){
   const kids=[];
   // capa / cabeçalho
   kids.push(new Table({width:{size:9900,type:WidthType.DXA},columnWidths:[9900],borders:{top:noB,bottom:{style:BorderStyle.SINGLE,size:18,color:GOLD},left:noB,right:noB,insideHorizontal:noB,insideVertical:noB},rows:[new TableRow({children:[new TableCell({shading:{type:ShadingType.CLEAR,fill:INK,color:"auto"},margins:{top:300,bottom:300,left:300,right:300},borders:{top:noB,bottom:noB,left:noB,right:noB},
-    children:[p(run("EX LIBRIS · ACERVO PESSOAL",{size:15,bold:true,color:"D6B878",cs:30}),{after:120}),p(run(model.titulo,{font:"Georgia",size:44,bold:true,color:"FFFFFF"}),{after:80}),p(run(model.subtitulo,{font:"Georgia",size:22,italics:true,color:"D6B878"}),{after:0})]})]})]}));
+    children:[...(model._logo?[new Paragraph({alignment:AlignmentType.RIGHT,spacing:{after:0},children:[new ImageRun({data:model._logo.bytes,transformation:{width:64,height:64}})]})]:[]),p(run("EX LIBRIS · ACERVO PESSOAL",{size:15,bold:true,color:"D6B878",cs:30}),{after:120}),p(run(model.titulo,{font:"Georgia",size:44,bold:true,color:"FFFFFF"}),{after:80}),p(run(model.subtitulo,{font:"Georgia",size:22,italics:true,color:"D6B878"}),{after:0})]})]})]}));
   kids.push(p(run(""),{after:120}));
   if(model.filtros) kids.push(p(run((model.filtrosRotulo??"Critérios: ")+model.filtros,{size:17,color:MUT,italics:true}),{after:160}));
   // KPIs em grade de 5
@@ -1204,6 +1218,7 @@ async function gerarDoc(fmt,model){
   if(gerando) return; gerando=true; toast(fmt==="pdf"?"Gerando o PDF…":"Gerando o Word…");
   try{
     let blob;
+    model={...model,_logo:await logoPNG()};
     if(fmt==="pdf"){ const J=await libPDF(); blob=pdfFromModel(model,J).output("blob") }
     else { const D=await libDOCX(); blob=await D.Packer.toBlob(docxFromModel(model,D)) }
     const nome=(model.titulo||"Relatorio").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"")+"-"+new Date().toISOString().slice(0,10)+"."+fmt;
