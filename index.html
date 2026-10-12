@@ -289,7 +289,7 @@ select.f{border:1px solid var(--line);background:var(--surface);border-radius:6p
     <div class="brandrow"><svg class="mark" role="img" aria-label="Biblioteca Mário Rubens" width="56" height="56" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#111111"/><rect x="12" y="17" width="9" height="33" rx="1" fill="#C9A45C"/><rect x="12" y="22" width="9" height="2" fill="#111111" opacity=".55"/><rect x="12" y="43" width="9" height="2" fill="#111111" opacity=".55"/><rect x="23" y="11" width="8" height="39" rx="1" fill="#E8D19A"/><rect x="23" y="16" width="8" height="2" fill="#111111" opacity=".45"/><rect x="23" y="43" width="8" height="2" fill="#111111" opacity=".45"/><rect x="33" y="20" width="9" height="30" rx="1" fill="#C9A45C"/><rect x="33" y="25" width="9" height="2" fill="#111111" opacity=".55"/><rect x="44.5" y="18" width="8" height="32" rx="1" fill="#9C7A35" transform="rotate(16 52.5 50)"/><rect x="9" y="50" width="46" height="3.5" rx="1.75" fill="#E8D19A"/></svg>
     <div class="brand">
       <span class="eyebrow">Ex libris · acervo pessoal</span>
-      <h1>Biblioteca <em>Mário Rubens</em></h1>
+      <h1>Biblioteca <em id="bibNome">Mário Rubens</em></h1>
       <p class="sub">Catálogo completo dos livros da estante: ficha bibliográfica, lugar na prateleira, leitura, empréstimos e pendências de cadastro.</p>
     </div></div>
     <div class="head-actions">
@@ -339,7 +339,7 @@ select.f{border:1px solid var(--line);background:var(--surface);border-radius:6p
     </aside>
   </div>
 
-  <footer class="foot"><span><b>Biblioteca Mário Rubens</b> · Ex libris, acervo pessoal</span><span style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span id="sync">Conectando ao acervo…</span></span></footer>
+  <footer class="foot"><span><b id="bibFoot">Biblioteca Mário Rubens</b> · Ex libris, acervo pessoal</span><span style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span id="sync">Conectando ao acervo…</span></span></footer>
 </div>
 
 <div id="drawerRoot"></div>
@@ -348,6 +348,7 @@ select.f{border:1px solid var(--line);background:var(--surface);border-radius:6p
 
 <script>
 (() => {
+const BIB=()=>"Biblioteca "+(window.BIB_NOME||"Mário Rubens");
 const DEFAULT_ORDER = ["Mercado Imobiliário","Negócios e Gestão","Liderança","Vendas e Marketing","Finanças","Biografia","Desenvolvimento Pessoal","Relacionamentos","Espiritualidade e Fé","Direito","Arquitetura e Design","História","Literatura","Acadêmico/Didático","Outros"];
 const STATUS = {nao:"Não lido",lendo:"Lendo",parcial:"Lido parcialmente",lido:"Lido",relendo:"Relendo",abandonado:"Abandonado",consulta:"Consulta"};
 const STATUS_CLS = {nao:"p-nao",lendo:"p-lendo",parcial:"p-parcial",lido:"p-lido",relendo:"p-lendo",abandonado:"p-aband",consulta:"p-nao"};
@@ -534,7 +535,7 @@ function renderAll(){renderStats();renderChips();renderSpines();renderList();ren
 
 /* ---------- Ficha ---------- */
 let cur=null, tab="ficha";
-function nextCode(){const n=books.reduce((m,b)=>Math.max(m,parseInt(String(b.codigo||"").replace(/\D/g,""))||0),0)+1;return "MR-"+String(n).padStart(4,"0")}
+function nextCode(){const n=books.reduce((m,b)=>Math.max(m,parseInt(String(b.codigo||"").replace(/\D/g,""))||0),0)+1;return (window.BIB_PREFIXO||"MR")+"-"+String(n).padStart(4,"0")}
 function openBook(id){const b=books.find(x=>x.id===id);if(!b)return;cur=JSON.parse(JSON.stringify(b));cur._new=false;tab="ficha";drawDrawer()}
 function newBook(pre={}){
   cur={_new:true,codigo:nextCode(),titulo:"",autores:[],status_leitura:"nao",formato:"Brochura",idioma:"Português",estante:cfg.estante,cor_lombada:"#7a7266",conferido:true,assuntos:[],...pre};
@@ -988,7 +989,7 @@ function drawRep(){
   $("#gPdf").onclick=()=>gerarDoc("pdf",buildGerencial(books));
   $("#gWord").onclick=()=>gerarDoc("docx",buildGerencial(books));
 }
-function repTitle(){const p=[GROUPS[rep.grupo]];["cat","autor","assunto","editora"].forEach(k=>rep[k]&&p.push(rep[k]));rep.status&&p.push(STATUS[rep.status]);rep.prat&&p.push(rep.prat==="__sem"?"sem lugar":"prateleira "+rep.prat);return "Relatório da Biblioteca Mário Rubens · "+p.join(" · ")}
+function repTitle(){const p=[GROUPS[rep.grupo]];["cat","autor","assunto","editora"].forEach(k=>rep[k]&&p.push(rep[k]));rep.status&&p.push(STATUS[rep.status]);rep.prat&&p.push(rep.prat==="__sem"?"sem lugar":"prateleira "+rep.prat);return "Relatório da "+BIB()+" · "+p.join(" · ")}
 async function copyReport(arr,groups){
   const ln=b=>`  - ${b.titulo}${b.subtitulo?": "+b.subtitulo:""} · ${authors(b)}${b.ano?" ("+b.ano+")":""} · ${hasPlace(b)?"prat. "+normShelf(b.prateleira)+"/"+b.posicao:"sem lugar"}`;
   const txt=[repTitle(),`${arr.length} livros · ${new Date().toLocaleDateString("pt-BR")}`,""].concat(rep.grupo==="nenhum"?arr.map(ln):groups.flatMap(g=>[`${g.k} (${g.list.length})`,...g.list.map(ln),""])).join("\n");
@@ -1067,7 +1068,7 @@ function buildGerencial(all){
     `${pct(lidos,n)<50?`A leitura registrada ainda cobre ${pct(lidos,n)}% dos livros; vale atualizar a situação de leitura dos títulos já lidos para que os relatórios reflitam a realidade. `:""}`+
     `${semLugar?`Para concluir a organização física, ${fmtN(semLugar)} livros ainda precisam de prateleira e posição. `:""}`+
     `${pendN?`Recomenda-se também concluir a conferência das ${fmtN(pendN)} fichas pendentes, priorizando as obras técnicas de mercado imobiliário e avaliação, que são material de consulta profissional.`:""}`;
-  return {tipo:"gerencial",titulo:"Relatório Gerencial do Acervo",subtitulo:"Biblioteca Mário Rubens · posição em "+dataHoje(),
+  return {tipo:"gerencial",titulo:"Relatório Gerencial do Acervo",subtitulo:BIB()+" · posição em "+dataHoje(),
     kpis:[[fmtN(n),"Volumes"],[fmtN(titulos),"Títulos"],[fmtN(autores.size),"Autores"],[fmtN(eds.size),"Editoras"],[fmtN(pags),"Páginas"],[pct(lidos,n)+"%","Lidos"],[fmtN(lendo),"Em leitura"],[fmtN(empN),"Emprestados"],[fmtN(semLugar),"Sem lugar"],[fmtN(pendN),"A conferir"]],
     secoes,conclusao};
 }
@@ -1084,7 +1085,7 @@ function buildSelecao(arr,groups,meta){
     secoes.push({titulo:"Resumo por "+meta.grupoNome.toLowerCase(),tabela:{cols:[{h:meta.grupoNome,w:70},{h:"Livros",w:18,a:"right"},{h:"%",w:14,a:"right"},{h:"Participação",w:72,bar:true}],rows:groups.map(g=>[g.k,fmtN(g.list.length),pct(g.list.length,n)+"%",g.list.length/max])}});
     groups.forEach(g=>secoes.push({titulo:`${g.k} (${g.list.length})`,nivel:2,tabela:{cols,rows:g.list.map(row)}}));
   }
-  return {tipo:"selecao",titulo:meta.titulo||"Relatório do Acervo",subtitulo:"Biblioteca Mário Rubens · "+dataHoje(),filtros:meta.filtros,
+  return {tipo:"selecao",titulo:meta.titulo||"Relatório do Acervo",subtitulo:BIB()+" · "+dataHoje(),filtros:meta.filtros,
     kpis:[[fmtN(n),"Livros"],[fmtN(autores),"Autores"],[pct(lidos,n)+"%","Lidos"],[meta.flat?"-":fmtN(groups.length),"Grupos"]],secoes};
 }
 
@@ -1110,11 +1111,11 @@ function pdfFromModel(model,jsPDF){
       doc.setTextColor(...RPT.gold); doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.text("EX LIBRIS  ·  ACERVO PESSOAL",M,17,{charSpace:1.2});
       doc.setTextColor(255,255,255); doc.setFont("times","bold"); doc.setFontSize(25); doc.text(T(model.titulo),M,32);
       doc.setFont("times","italic"); doc.setFontSize(12); doc.setTextColor(...RPT.gold); doc.text(T(model.subtitulo),M,42); if(model._logo){ try{ doc.addImage(model._logo.dataURL,"PNG",W-M-26,14,26,26) }catch(e){} }
-    } else { if(model._logo){ try{ doc.addImage(model._logo.dataURL,"PNG",M,5.5,6.5,6.5) }catch(e){} } doc.setTextColor(...RPT.gold); doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.text("BIBLIOTECA MÁRIO RUBENS",model._logo?M+8.5:M,11,{charSpace:0.8});
+    } else { if(model._logo){ try{ doc.addImage(model._logo.dataURL,"PNG",M,5.5,6.5,6.5) }catch(e){} } doc.setTextColor(...RPT.gold); doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.text(BIB().toUpperCase(),model._logo?M+8.5:M,11,{charSpace:0.8});
       doc.setTextColor(...RPT.muted); doc.setFont("helvetica","normal"); doc.text(T(model.titulo),W-M,11,{align:"right"}); doc.setDrawColor(...RPT.gold); doc.setLineWidth(0.3); doc.line(M,13.5,W-M,13.5) }
   };
   const footer=()=>{ const p=doc.internal.getCurrentPageInfo().pageNumber; doc.setDrawColor(...RPT.line); doc.setLineWidth(0.2); doc.line(M,H-14,W-M,H-14);
-    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...RPT.muted); doc.text("Biblioteca Mário Rubens · Ex libris, acervo pessoal",M,H-9); doc.text(`Página ${p} de {total}`,W-M,H-9,{align:"right"}) };
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...RPT.muted); doc.text(BIB()+" · Ex libris, acervo pessoal",M,H-9); doc.text(`Página ${p} de {total}`,W-M,H-9,{align:"right"}) };
   header(true); let y=64;
   if(model.filtros){ doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...RPT.muted); const l=doc.splitTextToSize(T((model.filtrosRotulo??"Critérios: ")+model.filtros),W-2*M); doc.text(l,M,y); y+=l.length*4.2+3 }
   // KPIs
@@ -1200,11 +1201,11 @@ function docxFromModel(model,D){
   });
   if(model.conclusao){ kids.push(p(run(model.conclusaoTitulo||"Considerações finais",{font:"Georgia",size:30,bold:true,color:INK}),{before:280,after:80,border:{bottom:{style:BorderStyle.SINGLE,size:8,color:GOLD,space:4}}}));
     kids.push(p(run(model.conclusao,{size:20,color:"282828"}),{shade:GL,border:{left:{style:BorderStyle.SINGLE,size:24,color:GOLD,space:8}},indent:{left:160},after:200})) }
-  kids.push(p([run("Biblioteca Mário Rubens",{font:"Georgia",bold:true,size:20,color:INK}),run("  ·  Ex libris, acervo pessoal",{size:18,color:MUT,italics:true})],{before:300,align:AlignmentType.CENTER}));
-  return new Document({creator:"Biblioteca Mário Rubens",title:model.titulo,styles:{default:{document:{run:{font:"Calibri",size:19}}}},
+  kids.push(p([run(BIB(),{font:"Georgia",bold:true,size:20,color:INK}),run("  ·  Ex libris, acervo pessoal",{size:18,color:MUT,italics:true})],{before:300,align:AlignmentType.CENTER}));
+  return new Document({creator:BIB(),title:model.titulo,styles:{default:{document:{run:{font:"Calibri",size:19}}}},
     sections:[{properties:{page:{margin:{top:1000,bottom:1000,left:1000,right:1000}}},
-      headers:{default:new Header({children:[p([run("BIBLIOTECA MÁRIO RUBENS",{size:14,bold:true,color:GOLD,cs:20}),run("   "+model.titulo,{size:14,color:MUT})],{align:AlignmentType.RIGHT,after:0})]})},
-      footers:{default:new Footer({children:[new Paragraph({alignment:AlignmentType.RIGHT,border:{top:{style:BorderStyle.SINGLE,size:4,color:LINE,space:4}},children:[run("Biblioteca Mário Rubens · Ex libris     Página ",{size:14,color:MUT}),new TextRun({children:[PageNumber.CURRENT],size:14,color:MUT,font:"Calibri"}),run(" de ",{size:14,color:MUT}),new TextRun({children:[PageNumber.TOTAL_PAGES],size:14,color:MUT,font:"Calibri"})]})]})},
+      headers:{default:new Header({children:[p([run(BIB().toUpperCase(),{size:14,bold:true,color:GOLD,cs:20}),run("   "+model.titulo,{size:14,color:MUT})],{align:AlignmentType.RIGHT,after:0})]})},
+      footers:{default:new Footer({children:[new Paragraph({alignment:AlignmentType.RIGHT,border:{top:{style:BorderStyle.SINGLE,size:4,color:LINE,space:4}},children:[run(BIB()+" · Ex libris     Página ",{size:14,color:MUT}),new TextRun({children:[PageNumber.CURRENT],size:14,color:MUT,font:"Calibri"}),run(" de ",{size:14,color:MUT}),new TextRun({children:[PageNumber.TOTAL_PAGES],size:14,color:MUT,font:"Calibri"})]})]})},
       children:kids}]});
 }
 
@@ -1340,7 +1341,7 @@ function buildPlano(){
   const consid=`Com ${P.mLiv} minutos diários dedicados aos livros, a fila de ${P.itens.length} ${P.itens.length===1?"título":"títulos"} soma ${fmtN(P.pags)} páginas e deve ser concluída em ${fmtPrazo(P.corridos)}, com previsão para ${P.fim?fmtData(P.fim):"-"}. `+
     `${L.min_biblia&&P.bibFim?`Mantendo ${L.min_biblia} minutos diários de Bíblia, a leitura bíblica completa fica pronta por volta de ${fmtData(P.bibFim)}. `:""}`+
     `${prim?`O próximo livro é “${prim.b.titulo}”. `:""}O prazo é uma estimativa: vale revisar o ritmo de páginas por hora depois dos dois primeiros livros, porque obras técnicas costumam exigir mais tempo do que biografias e textos de desenvolvimento pessoal. Ao terminar um livro, use “Lido” no plano para que as datas se recalculem.`;
-  return {tipo:"plano",titulo:"Plano de Leitura",subtitulo:"Biblioteca Mário Rubens · "+dataHoje(),
+  return {tipo:"plano",titulo:"Plano de Leitura",subtitulo:BIB()+" · "+dataHoje(),
     kpis:[[fmtN(P.itens.length),"Livros"],[fmtN(P.pags),"Páginas"],[P.mLiv+" min","Livros por dia"],[L.min_biblia+" min","Bíblia por dia"],[P.fim?P.fim.toLocaleDateString("pt-BR"):"-","Conclusão"]],
     secoes,conclusao:consid,conclusaoTitulo:"Considerações"};
 }
@@ -1476,7 +1477,7 @@ function resumosModel(lista){
     m.secoes.forEach(s=>secoes.push({...s,nivel:2}));
     if(m.conclusao) secoes.push({titulo:"Leitura crítica",nivel:2,texto:m.conclusao});
   });
-  return {tipo:"resumos",titulo:"Resumos de Leitura",subtitulo:`Biblioteca Mário Rubens · ${lista.length} livros · ${dataHoje()}`,
+  return {tipo:"resumos",titulo:"Resumos de Leitura",subtitulo:`${BIB()} · ${lista.length} livros · ${dataHoje()}`,
     kpis:[[fmtN(lista.length),"Livros"],[fmtN(new Set(lista.flatMap(b=>b.autores||[])).size),"Autores"],[fmtN(new Set(lista.map(b=>b.categoria).filter(Boolean)).size),"Seções"]],secoes};
 }
 

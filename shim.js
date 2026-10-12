@@ -13,6 +13,42 @@
   const emailToLogin=e=>String(e||"").split("@")[0];
   let fs=null, usuario=null, resolveDb, dbPronto=new Promise(r=>resolveDb=r);
 
+  /* ---------- Bibliotecas da família (uma por pessoa) ---------- */
+  const BIBS=window.BIBLIOTECAS||{
+    marubens:{nome:"Mário Rubens",prefixo:"MR"},
+    mariley:{nome:"Mariley",prefixo:"ML"},
+    marina:{nome:"Marina",prefixo:"MN"},
+    marcus:{nome:"Marcus",prefixo:"MC"}
+  };
+  let bibAtual=null;
+  const lerBib=()=>{ try{ return localStorage.getItem("bib_atual") }catch(e){ return null } };
+  const gravarBib=id=>{ try{ localStorage.setItem("bib_atual",id) }catch(e){} };
+  // a biblioteca do Mário continua nas coleções originais; as demais ficam em bibliotecas/<login>/...
+  const base=()=>bibAtual&&bibAtual!=="marubens"?`bibliotecas/${bibAtual}/`:"";
+  const dbBib={
+    collection:n=>fs.collection(n==="capas"?n:base()+n),
+    doc:p=>fs.doc(base()+p),
+    batch:()=>fs.batch()
+  };
+  function aplicarBib(){
+    const b=BIBS[bibAtual]||{nome:bibAtual,prefixo:"MR"};
+    window.BIB_NOME=b.nome; window.BIB_PREFIXO=b.prefixo||"MR";
+    const upd=()=>{
+      const n=document.getElementById("bibNome"); if(n) n.textContent=b.nome;
+      const f=document.getElementById("bibFoot"); if(f) f.textContent="Biblioteca "+b.nome;
+      document.title="Biblioteca "+b.nome;
+      seletorBib();
+    };
+    if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",upd); else upd();
+  }
+  function seletorBib(){
+    const h=document.querySelector(".brand h1"); if(!h||document.getElementById("bibSel")) return;
+    const d=document.createElement("label"); d.className="bib-sel";
+    d.innerHTML=`Biblioteca de <select id="bibSel">${Object.entries(BIBS).map(([k,v])=>`<option value="${k}" ${k===bibAtual?"selected":""}>${v.nome}${k===usuario?" (minha)":""}</option>`).join("")}</select>`;
+    h.insertAdjacentElement("afterend",d);
+    document.getElementById("bibSel").onchange=e=>{ gravarBib(e.target.value); location.reload() };
+  }
+
   /* ---------- Tela de login ---------- */
   const css=`
   .lg-wrap{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px}
@@ -32,6 +68,8 @@
   .lg-help ol{margin:6px 0 0;padding-left:18px}
   .lg-links{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
   .lg-box .alt{background:none;border:0;color:var(--gold-ink);cursor:pointer;font:inherit;font-size:13.5px;text-decoration:underline;padding:0;align-self:flex-start}
+  .bib-sel{display:inline-flex;align-items:center;gap:8px;margin:2px 0 4px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .bib-sel select{font:inherit;font-size:14px;letter-spacing:0;text-transform:none;font-weight:600;color:var(--gold-ink);border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 8px;cursor:pointer}
   .acct{position:relative}
   .acct-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:8px;display:flex;flex-direction:column;gap:4px;min-width:240px}
   .acct-menu button{text-align:left;border:0;background:transparent;padding:9px 10px;border-radius:6px;cursor:pointer;font:inherit;color:var(--ink)}
@@ -98,12 +136,14 @@
     document.getElementById("acctBtn").onclick=()=>{
       const old=document.getElementById("acctMenu"); if(old){old.remove();return}
       const m=document.createElement("div"); m.className="acct-menu"; m.id="acctMenu";
-      m.innerHTML=`<small>Conectado como <b>${usuario}</b></small>
+      m.innerHTML=`<small>Conectado como <b>${usuario}</b> · vendo a Biblioteca ${(BIBS[bibAtual]||{}).nome||bibAtual}</small>
+        ${bibAtual!==usuario?`<button type="button" id="acMinha">Ir para a minha biblioteca</button>`:""}
         <button type="button" id="acBackup">Baixar cópia de segurança (JSON)</button>
-        ${usuario===ADMIN?`<button type="button" id="acImport">Importar acervo de um backup</button>`:""}
+        <button type="button" id="acImport">Importar livros de um backup para esta biblioteca</button>
         <button type="button" id="acSenha">Trocar minha senha</button>
         <button type="button" id="acSair">Sair</button>`;
       w.appendChild(m);
+      const mn=document.getElementById("acMinha"); if(mn) mn.onclick=()=>{ gravarBib(usuario); location.reload() };
       document.getElementById("acSair").onclick=()=>firebase.auth().signOut().then(()=>location.reload());
       document.getElementById("acBackup").onclick=baixarBackup;
       document.getElementById("acSenha").onclick=trocarSenha;
@@ -128,10 +168,12 @@
   const alertToast=t=>{const r=document.getElementById("toastRoot"); if(r){r.innerHTML=`<div class="toast">${t}</div>`; setTimeout(()=>r.innerHTML="",3000)}};
   function salvarArquivo(nome,blob){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nome;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
   async function baixarBackup(){
-    const [ls,cs,cf]=await Promise.all([fs.collection("livros").get(),fs.collection("capas").get(),fs.doc("config/geral").get()]);
+    const ls=await dbBib.collection("livros").get(), cf=await dbBib.doc("config/geral").get();
+    const ids=new Set(ls.docs.map(d=>d.data().capa_id).filter(Boolean)); const capas={};
+    for(const id of ids){ try{ const c=await fs.collection("capas").doc(id).get(); if(c.exists) capas[id]=c.data().data }catch(e){} }
     const out={formato:"biblioteca-mario-rubens-backup",versao:1,gerado_em:new Date().toISOString(),
-      livros:ls.docs.map(d=>({id:d.id,...d.data()})),capas:Object.fromEntries(cs.docs.map(d=>[d.id,d.data().data])),config:cf.exists?cf.data():null};
-    salvarArquivo(`backup-biblioteca-${new Date().toISOString().slice(0,10)}.json`,new Blob([JSON.stringify(out)],{type:"application/json"}));
+      biblioteca:bibAtual,livros:ls.docs.map(d=>({id:d.id,...d.data()})),capas,config:cf.exists?cf.data():null};
+    salvarArquivo(`backup-biblioteca-${bibAtual}-${new Date().toISOString().slice(0,10)}.json`,new Blob([JSON.stringify(out)],{type:"application/json"}));
     alertToast(`Cópia de segurança com ${out.livros.length} livros baixada.`);
   }
   function importarBackup(){
@@ -140,7 +182,7 @@
       const f=inp.files[0]; if(!f) return; let j; try{ j=JSON.parse(await f.text()) }catch(e){ alertToast("Arquivo inválido."); return }
       if(!j||!Array.isArray(j.livros)){ alertToast("Este arquivo não é um backup da biblioteca."); return }
       const root=document.getElementById("busyRoot");
-      root.innerHTML=`<div class="busy"><div class="box"><h3>Importar ${j.livros.length} livros?</h3><p class="note">Livros com o mesmo registro (MR) serão substituídos pelos do arquivo. ${Object.keys(j.capas||{}).length} capas serão importadas.</p><div class="note" id="imMsg"></div><div style="display:flex;gap:8px"><button class="btn primary" id="imOk" type="button">Importar</button><button class="btn ghost" id="imNo" type="button">Cancelar</button></div></div></div>`;
+      root.innerHTML=`<div class="busy"><div class="box"><h3>Importar ${j.livros.length} livros?</h3><p class="note">Destino: <b>Biblioteca ${(BIBS[bibAtual]||{}).nome||bibAtual}</b>. Livros com o mesmo registro (MR) serão substituídos pelos do arquivo. ${Object.keys(j.capas||{}).length} capas serão importadas.</p><div class="note" id="imMsg"></div><div style="display:flex;gap:8px"><button class="btn primary" id="imOk" type="button">Importar</button><button class="btn ghost" id="imNo" type="button">Cancelar</button></div></div></div>`;
       document.getElementById("imNo").onclick=()=>root.innerHTML="";
       document.getElementById("imOk").onclick=async()=>{
         const msg=document.getElementById("imMsg"); document.getElementById("imOk").disabled=true;
@@ -148,7 +190,7 @@
           const ops=[]; j.livros.forEach(b=>{const {id,...data}=b; ops.push(["livros",id||data.codigo,data])});
           Object.entries(j.capas||{}).forEach(([id,data])=>ops.push(["capas",id,{data}]));
           if(j.config) ops.push(["config","geral",j.config]);
-          for(let i=0;i<ops.length;i+=300){ const bt=fs.batch(); ops.slice(i,i+300).forEach(([c,id,d])=>bt.set(fs.collection(c).doc(id),d)); await bt.commit(); msg.textContent=`Gravados ${Math.min(i+300,ops.length)} de ${ops.length}…` }
+          for(let i=0;i<ops.length;i+=300){ const bt=fs.batch(); ops.slice(i,i+300).forEach(([c,id,d])=>bt.set(dbBib.collection(c).doc(id),d)); await bt.commit(); msg.textContent=`Gravados ${Math.min(i+300,ops.length)} de ${ops.length}…` }
           root.innerHTML=""; alertToast(`Importação concluída: ${j.livros.length} livros.`);
         }catch(e){ msg.textContent="Falha na importação: "+(e.message||e.code||"erro") }
       };
@@ -185,7 +227,7 @@
 
   /* ---------- window.claude.use ---------- */
   window.claude={ use: async name=>{
-    if(name==="db"){ await dbPronto; return fs }
+    if(name==="db"){ await dbPronto; return dbBib }
     if(name==="user"){ await dbPronto; return {id:async()=>usuario,isOwner:()=>usuario===ADMIN,canEdit:()=>true,can:async()=>true,me:async()=>({id:usuario,name:usuario})} }
     if(name==="assets"){ await dbPronto; return { upload: async blob=>{ const id="c"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); const data=await blobToDataURL(blob); await fs.collection("capas").doc(id).set({data,criado_em:new Date().toISOString(),por:usuario}); capaCache[id]=data; return {id,url:data,sizeBytes:blob.size,contentType:"image/jpeg"} } } }
     if(name==="downloads") return { save: async ({filename,data})=>salvarArquivo(filename,data instanceof Blob?data:new Blob([data])) };
@@ -201,6 +243,7 @@
   firebase.auth().onAuthStateChanged(u=>{
     if(u&&PERMITIDOS.includes(emailToLogin(u.email))){
       usuario=emailToLogin(u.email); const el=document.getElementById("lgWrap"); if(el) el.remove();
+      const salvo=lerBib(); bibAtual=salvo&&BIBS[salvo]?salvo:usuario; aplicarBib();
       resolveDb(); const t=setInterval(()=>{ if(document.querySelector(".head-actions")){ clearInterval(t); menuConta() } },100);
     } else {
       if(u) firebase.auth().signOut();
