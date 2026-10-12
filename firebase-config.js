@@ -20,4 +20,4 @@ window.BIBLIOTECA_ADMIN = "marubens";
 
 /* Opcional: endereço do Cloudflare Worker que faz a leitura de capas por IA.
    Deixe vazio para desativar a leitura por foto (o cadastro com foto da capa continua funcionando). */
-window.CLAUDE_PROXY_URL = "";
+window.CLAUDE_PROXY_URL = "https://white-shape-9f37biblioteca-ia.mario-786.workers.dev";
