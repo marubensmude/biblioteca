@@ -71,7 +71,7 @@
   .bib-sel{display:inline-flex;align-items:center;gap:8px;margin:2px 0 4px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
   .bib-sel select{font:inherit;font-size:14px;letter-spacing:0;text-transform:none;font-weight:600;color:var(--gold-ink);border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 8px;cursor:pointer}
   .acct{position:relative}
-  .acct-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:8px;display:flex;flex-direction:column;gap:4px;min-width:240px}
+  .acct-menu{position:absolute;left:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:8px;display:flex;flex-direction:column;gap:4px;min-width:240px}
   .acct-menu button{text-align:left;border:0;background:transparent;padding:9px 10px;border-radius:6px;cursor:pointer;font:inherit;color:var(--ink)}
   .acct-menu button:hover{background:var(--sunk)}
   .acct-menu small{color:var(--muted);padding:4px 10px}`;

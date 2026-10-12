@@ -1232,7 +1232,7 @@ async function gerarDoc(fmt,model){
 
 /* ---------- Plano de leitura ---------- */
 const cfgDoc=()=>({ordem:cfg.ordem,por_prateleira:cfg.por_prateleira,estante:cfg.estante,organizado_em:cfg.organizado_em||null,fechar_espaco:cfg.fechar_espaco!==false,leitura:cfg.leitura||null});
-const LEIT_DEF={min_dia:60,min_biblia:15,pag_hora:25,dias_semana:7,inicio:""};
+const LEIT_DEF={min_dia:60,min_biblia:15,pag_hora:25,dias_semana:7,inicio:"",hora:"07:00"};
 const PAG_PADRAO=220, BIBLIA_HORAS=72;
 const leit=()=>({...LEIT_DEF,...(cfg.leitura||{})});
 const fila=()=>books.filter(b=>+b.fila>0).sort((a,b)=>a.fila-b.fila||String(a.codigo).localeCompare(b.codigo));
@@ -1305,7 +1305,7 @@ function drawPlan(focus){
         <div class="res">${res.map(b=>`<button type="button" data-padd="${esc(b.id)}"><span><b>${esc(b.titulo)}</b><br><small>${esc(authors(b))} · ${esc(b.categoria||"")} · ${STATUS[b.status_leitura||"nao"]}</small></span><span class="where">${b.paginas?fmtN(restantes(b))+" pág.":"? pág."} · + Fila</span></button>`).join("")||`<small style="color:var(--muted)">${q.length>=2?"Nenhum livro disponível com essa busca.":"Digite ao menos duas letras. Sem busca, aparecem aqui os livros em leitura e os lidos parcialmente."}</small>`}</div>
       </div>
     </div></div>
-    <div class="d-foot"><div class="grp"><span class="note">Prazo estimado com base no ritmo informado.</span></div><div class="grp"><button class="btn" type="button" id="pWord" ${P.itens.length?"":"disabled"}>Plano em Word</button><button class="btn primary" type="button" id="pPdf" ${P.itens.length?"":"disabled"}>Plano em PDF</button></div></div>
+    <div class="d-foot"><div class="grp"><label class="note" for="l_hora" style="display:flex;align-items:center;gap:6px">Lembrete às <input id="l_hora" type="time" value="${esc(L.hora||"07:00")}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit"></label><button class="btn" type="button" id="pAgenda" ${P.itens.length&&P.ppd?"":"disabled"} title="Cria um lembrete por dia, com o livro e as páginas do dia">Adicionar à agenda do celular</button></div><div class="grp"><button class="btn" type="button" id="pWord" ${P.itens.length?"":"disabled"}>Plano em Word</button><button class="btn primary" type="button" id="pPdf" ${P.itens.length?"":"disabled"}>Plano em PDF</button></div></div>
   </aside>`;
   $("#scrim").onclick=closeDrawer; $("#btnClose").onclick=closeDrawer;
   $("#l_min").onchange=e=>{const v=+e.target.value; salvarLeit({min_dia:v,min_biblia:Math.min(L.min_biblia,v-5)})};
@@ -1324,8 +1324,52 @@ function drawPlan(focus){
   document.querySelectorAll("[data-ptop]").forEach(x=>x.onclick=()=>mover(x.dataset.ptop,(a,i)=>{a.splice(i,1);a.unshift(x.dataset.ptop)}));
   document.querySelectorAll("[data-pout]").forEach(x=>x.onclick=()=>filaAcao(async()=>{const id=x.dataset.pout; await db.collection("livros").doc(id).update({fila:null,atualizado_em:new Date().toISOString()}); await gravarFila(ids.filter(y=>y!==id)); toast("Livro retirado da fila.")}));
   document.querySelectorAll("[data-plido]").forEach(x=>x.onclick=()=>filaAcao(async()=>{const id=x.dataset.plido, b=books.find(y=>y.id===id); await db.collection("livros").doc(id).update({fila:null,status_leitura:"lido",paginas_lidas:+b.paginas||null,fim_leitura:b.fim_leitura||hojeISO(),atualizado_em:new Date().toISOString()}); await gravarFila(ids.filter(y=>y!==id)); toast(`“${b.titulo}” marcado como lido.`)}));
+  $("#l_hora").onchange=e=>salvarLeit({hora:e.target.value||"07:00"});
+  $("#pAgenda").onclick=()=>baixarAgenda();
   $("#pPdf").onclick=()=>gerarDoc("pdf",buildPlano());
   $("#pWord").onclick=()=>gerarDoc("docx",buildPlano());
+}
+
+/* ---- Agenda diária (.ics) a partir do plano de leitura ---- */
+function agendaDias(){
+  const P=calcPlano(), L=P.L; if(!P.ppd||!P.itens.length) return [];
+  const livros=[]; let acc=0; P.itens.forEach(x=>{ livros.push({b:x.b,ini:acc,fim:acc+x.rest,base:+x.b.paginas_lidas||0,estimado:x.estimado}); acc+=x.rest });
+  const total=acc, dias=[]; let feito=0;
+  for(let k=1; feito<total && k<5000; k++){
+    const alvo=Math.min(total,Math.round(P.ppd*k)); if(alvo<=feito){ continue }
+    const seg=[]; livros.forEach(l=>{ const a=Math.max(feito,l.ini), z=Math.min(alvo,l.fim); if(z>a) seg.push({b:l.b,de:l.base+(a-l.ini)+1,ate:l.base+(z-l.ini),ultimo:z===l.fim,estimado:l.estimado}) });
+    dias.push({data:nEsimoDia(P.inicio,k,L.dias_semana),seg}); feito=alvo;
+  }
+  return dias;
+}
+function icsTexto(t){ return String(t||"").replace(/\\/g,"\\\\").replace(/;/g,"\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n") }
+function icsDobra(l){ const out=[]; let s=l; while(s.length>70){ out.push(s.slice(0,70)); s=" "+s.slice(70) } out.push(s); return out.join("\r\n") }
+async function baixarAgenda(){
+  const P=calcPlano(), L=P.L, dias=agendaDias(); if(!dias.length){ toast("Monte a fila de leitura primeiro."); return }
+  const [hh,mm]=String(L.hora||"07:00").split(":").map(n=>+n||0), dur=L.min_dia||60;
+  const p2=n=>String(n).padStart(2,"0"), dt=(d,h,m)=>`${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}T${p2(h)}${p2(m)}00`;
+  const agora=new Date(), stamp=`${agora.getUTCFullYear()}${p2(agora.getUTCMonth()+1)}${p2(agora.getUTCDate())}T${p2(agora.getUTCHours())}${p2(agora.getUTCMinutes())}00Z`;
+  const fimMin=Math.min(hh*60+mm+dur,23*60+59), bib=(window.BIB_PREFIXO||"MR").toLowerCase();
+  const L1=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Biblioteca//Plano de Leitura//PT","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:Plano de Leitura"];
+  dias.forEach((d,i)=>{
+    const tit=d.seg.map(s=>`${s.b.titulo}, p. ${s.de} a ${s.ate}${s.estimado?"*":""}`).join(" + ");
+    const desc=[`${BIB()} · Plano de leitura, dia ${i+1} de ${dias.length}.`,
+      ...d.seg.map(s=>`${s.b.titulo} (${authors(s.b)}): páginas ${s.de} a ${s.ate}${s.ultimo?" · último trecho, conclua o livro e marque como Lido.":""}`),
+      L.min_biblia?`Antes, ${L.min_biblia} min de leitura da Bíblia.`:"",
+      d.seg.some(s=>s.estimado)?"* Livro sem número de páginas na ficha: trecho estimado.":""].filter(Boolean).join("\n");
+    L1.push("BEGIN:VEVENT",`UID:plano-${bib}-${dt(d.data,0,0).slice(0,8)}@biblioteca`,`DTSTAMP:${stamp}`,
+      `DTSTART:${dt(d.data,hh,mm)}`,`DTEND:${dt(d.data,Math.floor(fimMin/60)%24,fimMin%60)}`,
+      icsDobra("SUMMARY:"+icsTexto("Leitura: "+tit)),icsDobra("DESCRIPTION:"+icsTexto(desc)),
+      "BEGIN:VALARM","ACTION:DISPLAY","TRIGGER:PT0M",icsDobra("DESCRIPTION:"+icsTexto("Hora da leitura: "+tit)),"END:VALARM","END:VEVENT");
+  });
+  L1.push("END:VCALENDAR");
+  const blob=new Blob([L1.join("\r\n")+"\r\n"],{type:"text/calendar;charset=utf-8"}), nome=`plano-de-leitura-${new Date().toISOString().slice(0,10)}.ics`;
+  if(downloads===undefined){ try{ downloads=await window.claude?.use?.("downloads") }catch(e){ downloads=null } }
+  try{
+    if(downloads) await downloads.save({filename:nome,data:blob});
+    else { const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=nome; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000) }
+    toast(`Agenda com ${dias.length} dias de leitura gerada. Abra o arquivo no celular para adicionar ao Calendário.`);
+  }catch(e){ if(!(e&&e.code&&/declin|cancel/i.test(e.code))) toast("Não foi possível gerar a agenda agora.") }
 }
 function buildPlano(){
   const P=calcPlano(), L=P.L;
