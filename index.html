@@ -1344,7 +1344,7 @@ function resumoTab(){
 }
 function fonteResumo(r){
   const d=r.gerado_em?new Date(r.gerado_em).toLocaleDateString("pt-BR"):"";
-  const base=r.origem==="web"?`Pesquisado na internet pela IA (Gemini)${(r.fontes||[]).length?` (${r.fontes.length} ${r.fontes.length===1?"fonte":"fontes"})`:""}`:r.origem==="chat"?"Pesquisado na internet pelo Claude, a pedido no chat":"Gerado pelo Claude com base no conhecimento sobre a obra, sem consulta à internet";
+  const base=r.origem==="web"?`Pesquisado na internet pela IA (Gemini)${(r.fontes||[]).length?` (${r.fontes.length} ${r.fontes.length===1?"fonte":"fontes"})`:""}`:r.origem==="chat"?"Pesquisado na internet pelo Claude, a pedido no chat":"Gerado pela IA com base no conhecimento sobre a obra, sem consulta à internet";
   return `${base}${d?` em ${d}`:""}${r.confianca?` · confiança ${RES_CONF[r.confianca]||r.confianca}`:""}. Confira as informações antes de citar.`;
 }
 async function gerarResumo(){
@@ -1372,13 +1372,13 @@ Responda SOMENTE com um objeto JSON com as chaves:
     const r=await s.json(prompt,opts);
     if(!r||typeof r!=="object"||!(r.visao_geral||r.tese_central)) throw {code:"invalid_json"};
     const clean=v=>typeof v==="string"?v.replace(/\s*—\s*/g,", "):Array.isArray(v)?v.map(clean):v&&typeof v==="object"?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,clean(x)])):v;
-    const res={...clean(r),origem:web?"web":"ia",fontes:(r._fontes||[]).slice(0,8),gerado_em:new Date().toISOString()}; delete res._fontes;
+    const res={...clean(r),origem:web&&!r._semWeb?"web":"ia",fontes:(r._fontes||[]).slice(0,8),gerado_em:new Date().toISOString()}; delete res._fontes; delete res._semWeb;
     await db.collection("livros").doc(b.id).update({resumo:res,atualizado_em:new Date().toISOString()});
     if(cur&&cur.id===b.id){ cur.resumo=res; if(tab==="resumo"){ $("#dBody").innerHTML=body(); bindBody() } }
     toast("Resumo pronto e gravado na ficha.");
   }catch(e){
     const c=e&&e.code;
-    if(c!=="cancelled"&&!(e&&e.name==="AbortError")) toast(c==="not_granted"?"Permissão para usar o Claude não concedida nesta visualização.":c==="rate_limited"?"Muitos pedidos seguidos. Tente de novo em alguns minutos.":"Não foi possível gerar o resumo agora. Tente de novo.");
+    if(c!=="cancelled"&&!(e&&e.name==="AbortError")) toast(c==="not_granted"?"Permissão para usar o Claude não concedida nesta visualização.":c==="rate_limited"?"A cota gratuita da IA está esgotada no momento. Tente de novo mais tarde.":"Não foi possível gerar o resumo agora."+(e&&e.message&&web?" Detalhe: "+String(e.message).slice(0,160):""));
   }finally{ $("#busyRoot").innerHTML=""; resumoCtl=null }
 }
 function resumoModel(b){

@@ -160,10 +160,10 @@
       const tok=await firebase.auth().currentUser.getIdToken();
       let r; try{ r=await fetch(url,{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+tok},body:JSON.stringify({prompt,images:imgs,web:!!opts.web}),signal:opts.signal}) }
       catch(e){ throw {code:e&&e.name==="AbortError"?"cancelled":"upstream_error",message:"Falha de conexão"} }
-      if(!r.ok) throw {code:r.status===429?"rate_limited":"upstream_error",message:"HTTP "+r.status};
-      const {text,fontes}=await r.json(); const a=text.indexOf("{"), z=text.lastIndexOf("}");
+      if(!r.ok){ let det=""; try{ det=(await r.json()).erro||"" }catch(e){} console.warn("IA:",r.status,det); throw {code:r.status===429?"rate_limited":"upstream_error",message:det||("HTTP "+r.status)} }
+      const {text,fontes,pesquisou}=await r.json(); const a=text.indexOf("{"), z=text.lastIndexOf("}");
       let o; try{ o=JSON.parse(text.slice(a,z+1)) }catch(e){ throw {code:"invalid_json",text} }
-      if(o&&typeof o==="object"&&Array.isArray(fontes)) o._fontes=fontes; return o;
+      if(o&&typeof o==="object"){ if(Array.isArray(fontes)) o._fontes=fontes; if(pesquisou===false) o._semWeb=true } return o;
     };
     return fn;
   }
