@@ -271,6 +271,15 @@ select.f{border:1px solid var(--line);background:var(--surface);border-radius:6p
 .resumo dl{margin:0;display:grid;grid-template-columns:minmax(120px,30%) 1fr;gap:6px 14px}.resumo dt{font-weight:700;color:var(--gold-ink)}.resumo dd{margin:0}
 @media (max-width:640px){.resumo dl{grid-template-columns:1fr}.resumo dd{margin-bottom:6px}}
 .resumo ul{margin:0;padding-left:20px}.resumo .fontes{font-size:13px}.resumo .fontes a{color:var(--ink)}
+/* v10: central de resumos */
+.rs-list{display:flex;flex-direction:column;gap:6px}
+.rs-it{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
+.rs-it.on{border-color:var(--gold);background:var(--gold-soft)}
+.rs-it input{width:18px;height:18px;margin-top:2px;accent-color:var(--gold-ink)}
+.rs-t{min-width:0}.rs-t b{display:block}.rs-t small{display:block;color:var(--muted);font-size:12.5px}
+.rs-t .rs-tese{font-style:italic;margin-top:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.rs-m{display:flex;flex-direction:column;align-items:flex-end;gap:3px;white-space:nowrap}.rs-m small{color:var(--muted);font-size:11.5px}
+@media (max-width:640px){.rs-it{grid-template-columns:22px minmax(0,1fr)}.rs-m{grid-column:2;flex-direction:row;align-items:center;gap:10px}}
 </style>
 
 </head>
@@ -286,6 +295,7 @@ select.f{border:1px solid var(--line);background:var(--surface);border-radius:6p
     <div class="head-actions">
       <button class="btn ghost" id="btnExport" type="button">Exportar planilha</button>
       <button class="btn" id="btnPlan" type="button">Plano de leitura</button>
+      <button class="btn" id="btnResumos" type="button">Resumos</button>
       <button class="btn" id="btnRep" type="button">Relatórios</button>
       <button class="btn" id="btnArr" type="button">Arrumar prateleira</button>
       <button class="btn ghost" id="btnOrg" type="button">Organizar por assunto</button>
@@ -530,7 +540,7 @@ function newBook(pre={}){
   cur={_new:true,codigo:nextCode(),titulo:"",autores:[],status_leitura:"nao",formato:"Brochura",idioma:"Português",estante:cfg.estante,cor_lombada:"#7a7266",conferido:true,assuntos:[],...pre};
   tab="ficha"; drawDrawer();
 }
-function closeDrawer(){arrOpen=false;repOpen=false;planOpen=false;if(cur&&cur._capaPreview)URL.revokeObjectURL(cur._capaPreview);cur=null;$("#drawerRoot").innerHTML="";document.querySelectorAll(".spine.sel").forEach(s=>s.classList.remove("sel"))}
+function closeDrawer(){arrOpen=false;repOpen=false;planOpen=false;resumosOpen=false;if(cur&&cur._capaPreview)URL.revokeObjectURL(cur._capaPreview);cur=null;$("#drawerRoot").innerHTML="";document.querySelectorAll(".spine.sel").forEach(s=>s.classList.remove("sel"))}
 const F=(k,label,o={})=>{
   const v=cur[k]; const cls=o.span?`s${o.span}`:""; const id="f_"+k;
   let input;
@@ -1103,6 +1113,7 @@ function pdfFromModel(model,jsPDF){
   const ensure=h=>{ if(y+h>H-22){ doc.addPage(); header(false); y=22 } };
   model.secoes.forEach(sec=>{
     const lvl2=sec.nivel===2;
+    if(sec.novaPagina){ doc.addPage(); header(false); y=24 }
     ensure(lvl2?18:26);
     doc.setFont("times","bold"); doc.setFontSize(lvl2?12:15); doc.setTextColor(...RPT.ink); doc.text(T(sec.titulo),M,y);
     if(!lvl2){ doc.setFillColor(...RPT.gold); doc.rect(M,y+2,14,0.8,"F") } y+=lvl2?4:7;
@@ -1139,7 +1150,7 @@ function docxFromModel(model,D){
   const {Document,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,AlignmentType,BorderStyle,ShadingType,Footer,Header,PageNumber,HeadingLevel,TableLayoutType}=D;
   const GOLD="B08D45",INK="111111",GL="F3EBDD",MUT="6E685E",LINE="E2DBCC";
   const run=(t,o={})=>new TextRun({text:String(t??""),font:o.font||"Calibri",size:o.size||19,bold:o.bold,italics:o.italics,color:o.color||"222222",characterSpacing:o.cs});
-  const p=(children,o={})=>new Paragraph({children:[].concat(children),alignment:o.align,spacing:{before:o.before||0,after:o.after??80},shading:o.shade?{type:ShadingType.CLEAR,fill:o.shade,color:"auto"}:undefined,border:o.border,indent:o.indent});
+  const p=(children,o={})=>new Paragraph({children:[].concat(children),pageBreakBefore:!!o.pb,alignment:o.align,spacing:{before:o.before||0,after:o.after??80},shading:o.shade?{type:ShadingType.CLEAR,fill:o.shade,color:"auto"}:undefined,border:o.border,indent:o.indent});
   const noB={style:BorderStyle.NONE,size:0,color:"FFFFFF"};
   const CW=9900;
   const cell=(children,o={})=>new TableCell({children:[].concat(children),width:o.w?{size:Math.round(o.w),type:WidthType.DXA}:undefined,shading:o.fill?{type:ShadingType.CLEAR,fill:o.fill,color:"auto"}:undefined,
@@ -1163,7 +1174,7 @@ function docxFromModel(model,D){
   kids.push(p(run(""),{after:200}));
   model.secoes.forEach(sec=>{
     const lvl2=sec.nivel===2;
-    kids.push(p(run(sec.titulo,{font:"Georgia",size:lvl2?24:30,bold:true,color:INK}),{before:lvl2?160:280,after:lvl2?60:40,border:lvl2?undefined:{bottom:{style:BorderStyle.SINGLE,size:8,color:GOLD,space:4}}}));
+    kids.push(p(run(sec.titulo,{font:"Georgia",size:lvl2?24:30,bold:true,color:INK}),{pb:sec.novaPagina,before:lvl2?160:280,after:lvl2?60:40,border:lvl2?undefined:{bottom:{style:BorderStyle.SINGLE,size:8,color:GOLD,space:4}}}));
     if(sec.texto) kids.push(p(run(sec.texto,{size:19,color:"3C3C3C"}),{after:100}));
     if(sec.tabela){ const t=sec.tabela, tot=t.cols.reduce((s,c)=>s+c.w,0); const cw=t.cols.map(c=>Math.round(c.w/tot*CW));
       const head=new TableRow({tableHeader:true,children:t.cols.map(c=>cell(p(run(c.h.toUpperCase(),{size:15,bold:true,color:"D6B878",cs:10}),{align:c.a==="right"?AlignmentType.RIGHT:AlignmentType.LEFT,after:0}),{w:cw[t.cols.indexOf(c)],fill:INK,bline:INK}))});
@@ -1398,6 +1409,62 @@ function resumoModel(b){
     secoes,conclusao:r.leitura_critica||"",conclusaoTitulo:"Leitura crítica"};
 }
 
+/* ---------- Central de resumos: selecionar e imprimir ---------- */
+let resumosOpen=false, resQ="", resSel=new Set(), resOrd="titulo";
+function openResumos(){ resumosOpen=true; resQ=""; resSel=new Set(); drawResumos(true) }
+function comResumo(){ return books.filter(b=>b.resumo&&(b.resumo.visao_geral||b.resumo.tese_central)) }
+function drawResumos(focus){
+  const todos=comResumo(), q=norm(resQ).trim();
+  let lista=q?todos.filter(b=>norm([b.titulo,b.subtitulo,authors(b),b.categoria,(b.assuntos||[]).join(" ")].join(" ")).includes(q)):todos.slice();
+  lista.sort((a,b)=>resOrd==="data"?String(b.resumo.gerado_em||"").localeCompare(String(a.resumo.gerado_em||"")):resOrd==="secao"?String(a.categoria||"").localeCompare(String(b.categoria||""),"pt-BR")||String(a.titulo).localeCompare(b.titulo,"pt-BR"):String(a.titulo).localeCompare(b.titulo,"pt-BR"));
+  [...resSel].forEach(id=>{ if(!todos.some(b=>b.id===id)) resSel.delete(id) });
+  const nSel=resSel.size, todosVis=lista.length&&lista.every(b=>resSel.has(b.id));
+  const semResumo=books.length-todos.length;
+  const rows=lista.map(b=>{const r=b.resumo; return `<label class="rs-it ${resSel.has(b.id)?"on":""}">
+      <input type="checkbox" data-rsel="${esc(b.id)}" ${resSel.has(b.id)?"checked":""}>
+      <span class="rs-t"><b>${esc(b.titulo)}</b><small>${esc(authors(b))} · ${esc(b.categoria||"")}</small><small class="rs-tese">${esc(r.tese_central||"")}</small></span>
+      <span class="rs-m"><small>${r.gerado_em?new Date(r.gerado_em).toLocaleDateString("pt-BR"):""}</small><small>${r.origem==="web"||r.origem==="chat"?"pesquisado":"sem pesquisa"}</small><button class="mini" type="button" data-rver="${esc(b.id)}">Ver</button></span>
+    </label>`}).join("");
+  $("#drawerRoot").innerHTML=`<div class="scrim" id="scrim"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="Resumos" style="width:min(860px,100%)">
+    <div class="d-head"><div class="d-title"><span class="eyebrow">Resumos de leitura</span><h2>Todos os resumos</h2><p>Marque os resumos que quer imprimir ou salvar. Eles saem juntos num só arquivo, um livro por página.</p></div><button class="x" type="button" id="btnClose" aria-label="Fechar">×</button></div>
+    <div class="d-body"><div style="display:flex;flex-direction:column;gap:14px">
+      <div class="kpis"><div><b>${todos.length}</b><span>Livros com resumo</span></div><div><b>${semResumo}</b><span>Ainda sem resumo</span></div><div><b>${nSel}</b><span>Selecionados</span></div></div>
+      <div class="rep-ctrl">
+        <div class="fld"><label for="rs_q">Buscar</label><input id="rs_q" type="search" autocomplete="off" value="${esc(resQ)}" placeholder="Título, autor, seção ou assunto"></div>
+        <div class="fld"><label for="rs_ord">Ordenar</label><select id="rs_ord"><option value="titulo" ${resOrd==="titulo"?"selected":""}>Título (A a Z)</option><option value="secao" ${resOrd==="secao"?"selected":""}>Seção</option><option value="data" ${resOrd==="data"?"selected":""}>Mais recentes</option></select></div>
+      </div>
+      ${todos.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn ghost" type="button" id="rsAll">${todosVis?"Desmarcar todos":"Marcar todos"}${q?" os filtrados":""}</button>${nSel?`<button class="btn ghost" type="button" id="rsNone">Limpar seleção</button>`:""}</div>`:""}
+      <div class="rs-list">${rows||`<div class="empty"><b>${todos.length?"Nada encontrado":"Nenhum resumo gerado ainda"}</b>${todos.length?"Ajuste a busca.":"Abra um livro, vá na aba Resumo e toque em “Gerar resumo detalhado”."}</div>`}</div>
+    </div></div>
+    <div class="d-foot"><div class="grp"><span class="note">${nSel?`${nSel} ${nSel===1?"resumo selecionado":"resumos selecionados"}`:"Nenhum selecionado"}</span></div>
+      <div class="grp"><button class="btn" type="button" id="rsWord" ${nSel?"":"disabled"}>Word</button><button class="btn primary" type="button" id="rsPdf" ${nSel?"":"disabled"}>Imprimir / salvar em PDF</button></div></div>
+  </aside>`;
+  $("#scrim").onclick=closeDrawer; $("#btnClose").onclick=closeDrawer;
+  const qIn=$("#rs_q"); qIn.oninput=()=>{resQ=qIn.value;const pos=qIn.selectionStart;drawResumos();const n=$("#rs_q");n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}};
+  if(focus) setTimeout(()=>{const n=$("#rs_q");n&&n.focus()},50);
+  $("#rs_ord").onchange=e=>{resOrd=e.target.value;drawResumos()};
+  document.querySelectorAll("[data-rsel]").forEach(c=>c.onchange=()=>{c.checked?resSel.add(c.dataset.rsel):resSel.delete(c.dataset.rsel);drawResumos()});
+  document.querySelectorAll("[data-rver]").forEach(bt=>bt.onclick=e=>{e.preventDefault();resumosOpen=false;openBook(bt.dataset.rver);tab="resumo";$("#dBody").innerHTML=body();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x.dataset.tab==="resumo"));bindBody()});
+  const all=$("#rsAll"); if(all) all.onclick=()=>{ if(todosVis) lista.forEach(b=>resSel.delete(b.id)); else lista.forEach(b=>resSel.add(b.id)); drawResumos() };
+  const none=$("#rsNone"); if(none) none.onclick=()=>{resSel=new Set();drawResumos()};
+  const sel=()=>lista.filter(b=>resSel.has(b.id)).concat(todos.filter(b=>resSel.has(b.id)&&!lista.includes(b)));
+  $("#rsPdf").onclick=()=>gerarDoc("pdf",resumosModel(sel()));
+  $("#rsWord").onclick=()=>gerarDoc("docx",resumosModel(sel()));
+}
+function resumosModel(lista){
+  if(lista.length===1) return resumoModel(lista[0]);
+  const secoes=[{titulo:"Livros deste volume",tabela:{cols:[{h:"#",w:8,a:"right"},{h:"Livro e autor",w:110},{h:"Seção",w:56}],rows:lista.map((b,i)=>[String(i+1),{t:b.titulo,s:authors(b)},b.categoria||"-"])}}];
+  lista.forEach((b,i)=>{
+    const m=resumoModel(b);
+    secoes.push({titulo:`${i+1}. ${b.titulo}`,novaPagina:true,texto:`${authors(b)}${[cleanEd(b.editora),b.ano].filter(Boolean).length?" · "+[cleanEd(b.editora),b.ano].filter(Boolean).join(", "):""}. ${fonteResumo(b.resumo)}`});
+    m.secoes.forEach(s=>secoes.push({...s,nivel:2}));
+    if(m.conclusao) secoes.push({titulo:"Leitura crítica",nivel:2,texto:m.conclusao});
+  });
+  return {tipo:"resumos",titulo:"Resumos de Leitura",subtitulo:`Biblioteca Mário Rubens · ${lista.length} livros · ${dataHoje()}`,
+    kpis:[[fmtN(lista.length),"Livros"],[fmtN(new Set(lista.flatMap(b=>b.autores||[])).size),"Autores"],[fmtN(new Set(lista.map(b=>b.categoria).filter(Boolean)).size),"Seções"]],secoes};
+}
+
 /* ---------- Exportação ---------- */
 async function exportCSV(){
   const cols=[["numero","Nº"],["codigo","Registro"],["titulo","Título"],["subtitulo","Subtítulo"],["autores","Autores"],["organizador","Organizador"],["tradutor","Tradutor"],["titulo_original","Título original"],["editora","Editora"],["ano","Ano"],["edicao","Edição"],["isbn","ISBN"],["paginas","Páginas"],["categoria","Seção"],["serie","Série"],["assuntos","Assuntos"],["estante","Estante"],["prateleira","Prateleira"],["posicao","Posição"],["formato","Formato"],["conservacao","Conservação"],["status_leitura","Situação"],["avaliacao","Avaliação"],["emprestado_para","Emprestado para"],["pendencia","Pendência"],["sinopse","Sinopse"]];
@@ -1420,6 +1487,7 @@ $("#q").addEventListener("input",e=>{filt.q=e.target.value;renderList();renderSp
 $("#fCat").addEventListener("change",e=>{filt.cat=e.target.value;renderList();renderSpines()});
 $("#fSort").addEventListener("change",e=>{filt.sort=e.target.value;renderList()});
 $("#btnNew").onclick=()=>{if(!db){toast("O acervo ainda está conectando.");return}newBook()};
+$("#btnResumos").onclick=()=>{if(!db){toast("O acervo ainda está conectando.");return}openResumos()};
 $("#btnPlan").onclick=()=>{if(!db){toast("O acervo ainda está conectando.");return}openPlan()};
 $("#btnRep").onclick=()=>{if(!db){toast("O acervo ainda está conectando.");return}openRep()};
 $("#btnArr").onclick=()=>{if(!db){toast("O acervo ainda está conectando.");return}openArr()};
@@ -1450,7 +1518,7 @@ renderAll();
   db.collection("livros").onSnapshot(snap=>{
     books=snap.docs.map(d=>({id:d.id,...d.data()}));
     $("#sync").textContent=`Acervo sincronizado · ${books.length} ${books.length===1?"livro":"livros"}`;
-    renderAll(); if(arrOpen) drawArr(); if(repOpen) drawRep(); if(planOpen) drawPlan();
+    renderAll(); if(arrOpen) drawArr(); if(repOpen) drawRep(); if(planOpen) drawPlan(); if(resumosOpen) drawResumos();
   },()=>{ $("#sync").textContent="A conexão com o acervo caiu. Recarregue a página." });
 })();
 })();
