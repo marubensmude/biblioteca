@@ -1,0 +1,1365 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Biblioteca">
+<meta name="theme-color" content="#111111">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.5 system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="shim.js"></script>
+<title>Biblioteca Mário Rubens</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: cabeçalho ex libris + estante de lombadas clicáveis + catálogo filtrável + ficha lateral com abas */
+:root{
+  --bg:#FBFAF7; --surface:#FFFFFF; --sunk:#F3F0E9; --ink:#111111; --muted:#6B665C; --line:#E4DFD3;
+  --gold:#9C7A35; --gold-soft:#EFE5CF; --gold-ink:#7A5C1F;
+  --ok:#2F6B45; --ok-soft:#E3F0E7; --warn:#9A5B12; --warn-soft:#F7EBD8; --bad:#A1322B; --bad-soft:#F6E1DF; --info:#2D4F7C; --info-soft:#E2EAF4;
+  --shelf:#2A2522; --shadow:0 18px 50px rgba(17,17,17,.18);
+  --f-display:"Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  --f-body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E0E0F; --surface:#17171A; --sunk:#1F1F23; --ink:#F2EFE8; --muted:#A39E93; --line:#2C2B2E;
+  --gold:#CFAA5E; --gold-soft:#2E2718; --gold-ink:#E2C27E;
+  --ok:#7FC79A; --ok-soft:#1B2A21; --warn:#E3A85A; --warn-soft:#2E2414; --bad:#E78A82; --bad-soft:#321D1B; --info:#93B4E0; --info-soft:#1B2433;
+  --shelf:#3A332D; --shadow:0 18px 50px rgba(0,0,0,.55); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0E0E0F; --surface:#17171A; --sunk:#1F1F23; --ink:#F2EFE8; --muted:#A39E93; --line:#2C2B2E;
+  --gold:#CFAA5E; --gold-soft:#2E2718; --gold-ink:#E2C27E;
+  --ok:#7FC79A; --ok-soft:#1B2A21; --warn:#E3A85A; --warn-soft:#2E2414; --bad:#E78A82; --bad-soft:#321D1B; --info:#93B4E0; --info-soft:#1B2433;
+  --shelf:#3A332D; --shadow:0 18px 50px rgba(0,0,0,.55); color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:clamp(16px,3vw,32px);padding-block:28px 64px;display:flex;flex-direction:column;gap:28px}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+/* Cabeçalho */
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:20px;border-bottom:1px solid var(--line);padding-bottom:22px}
+.brand{display:flex;flex-direction:column;gap:4px;min-width:0}
+.eyebrow{font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-weight:600}
+h1{font-family:var(--f-display);font-weight:600;font-size:clamp(34px,5vw,54px);line-height:1;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 em{font-style:italic;color:var(--gold)}
+.sub{color:var(--muted);margin:6px 0 0;max-width:60ch}
+.head-actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:6px;cursor:pointer;font-weight:500;font-size:14px;transition:border-color .15s,background .15s}
+.btn:hover{border-color:var(--gold)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover{background:var(--gold);border-color:var(--gold);color:#111}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Indicadores */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.stat{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:2px;cursor:pointer;text-align:left;border:0}
+.stat:hover{background:var(--sunk)}
+.stat .n{font-family:var(--f-display);font-size:34px;font-weight:600;line-height:1.05;font-variant-numeric:tabular-nums}
+.stat .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat.alert .n{color:var(--warn)}
+
+/* Estante */
+.shelf-box{display:flex;flex-direction:column;gap:10px}
+.sec-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sec-title h2{font-family:var(--f-display);font-size:26px;font-weight:600;margin:0}
+.sec-title span{color:var(--muted);font-size:13px}
+.shelf{overflow-x:auto;padding:18px 14px 0;background:var(--sunk);border-radius:8px 8px 0 0;border-bottom:12px solid var(--shelf);scrollbar-width:thin}
+.spines{display:flex;align-items:flex-end;gap:2px;min-height:190px}
+.spine{flex:0 0 auto;border:0;border-radius:2px 2px 0 0;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;padding:6px 0;box-shadow:inset -3px 0 0 rgba(0,0,0,.18),inset 2px 0 0 rgba(255,255,255,.12);transition:transform .15s}
+.spine:hover,.spine.sel{transform:translateY(-8px)}
+.spine span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-height:calc(100% - 8px)}
+.spine.dim{opacity:.22}
+.spine .flag{position:absolute;top:4px;left:50%;width:6px;height:6px;border-radius:50%;background:var(--warn);transform:translateX(-50%);box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.shelf-empty{color:var(--muted);padding:40px 0;text-align:center;width:100%}
+
+/* Painel principal */
+.main{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px;align-items:start}
+@media (max-width:920px){.main{grid-template-columns:minmax(0,1fr)}}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.search{flex:1 1 260px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:0 12px}
+.search input{border:0;background:transparent;padding:10px 0;width:100%;outline:none}
+select.f{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:9px 10px;max-width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:transparent;border-radius:99px;padding:5px 12px;font-size:13px;cursor:pointer}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.row{display:grid;grid-template-columns:10px 78px minmax(0,1fr) 150px 120px;gap:14px;align-items:center;padding:12px 16px 12px 0;border-bottom:1px solid var(--line);cursor:pointer;text-align:left;background:transparent;border-left:0;border-right:0;border-top:0;width:100%}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--sunk)}
+.row .sw{align-self:stretch;width:10px}
+.code{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.t{font-weight:600;line-height:1.3}
+.t small{display:block;font-weight:400;color:var(--muted);font-size:13px;margin-top:2px}
+.meta{font-size:13px;color:var(--muted);line-height:1.35}
+.pills{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+.pill{font-size:11.5px;padding:3px 8px;border-radius:99px;font-weight:600;white-space:nowrap}
+.p-nao{background:var(--sunk);color:var(--muted)}
+.p-lendo{background:var(--info-soft);color:var(--info)}
+.p-lido{background:var(--ok-soft);color:var(--ok)}
+.p-parcial{background:var(--gold-soft);color:var(--gold-ink)}
+.p-aband{background:var(--bad-soft);color:var(--bad)}
+.p-pend{background:var(--warn-soft);color:var(--warn)}
+.p-emp{background:var(--gold-soft);color:var(--gold-ink)}
+@media (max-width:720px){
+  .row{grid-template-columns:8px minmax(0,1fr);gap:4px 12px;padding:12px 14px 12px 0}
+  .row .sw{grid-row:span 4}
+  .row .code{order:-1}
+  .pills{justify-content:flex-start}
+}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-family:var(--f-display);font-size:22px;margin-bottom:4px}
+
+/* Lateral */
+.side{display:flex;flex-direction:column;gap:18px}
+.card{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:16px;display:flex;flex-direction:column;gap:10px}
+.card h3{margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:minmax(0,1fr) 28px;gap:8px;align-items:center;font-size:13px;cursor:pointer;background:none;border:0;padding:0;text-align:left}
+.bar .lab{display:flex;flex-direction:column;gap:3px;min-width:0}
+.bar .lab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .track{height:5px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.bar .fill{height:100%;background:var(--gold);border-radius:3px}
+.bar .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.note{font-size:13px;color:var(--muted);margin:0}
+
+/* Ficha */
+.scrim{position:fixed;inset:0;background:rgba(10,10,10,.45);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(640px,100%);background:var(--bg);z-index:21;box-shadow:var(--shadow);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.d-head{padding:20px 24px 0;display:flex;gap:16px;align-items:flex-start}
+.d-spine{width:16px;align-self:stretch;min-height:80px;border-radius:2px}
+.d-title{flex:1;min-width:0}
+.d-title h2{font-family:var(--f-display);font-size:30px;line-height:1.08;margin:2px 0 4px;font-weight:600;text-wrap:balance}
+.d-title p{margin:0;color:var(--muted)}
+.x{border:0;background:transparent;font-size:26px;line-height:1;cursor:pointer;color:var(--muted);padding:4px 6px}
+.tabs{display:flex;gap:2px;padding:16px 24px 0;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{border:0;background:transparent;padding:9px 12px;cursor:pointer;color:var(--muted);font-weight:600;font-size:13.5px;border-bottom:2px solid transparent;white-space:nowrap}
+.tab.on{color:var(--ink);border-bottom-color:var(--gold)}
+.d-body{flex:1;overflow-y:auto;padding:20px 24px}
+.d-foot{border-top:1px solid var(--line);padding:14px 24px;display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.d-foot .grp{display:flex;gap:10px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px 14px}
+.fld{display:flex;flex-direction:column;gap:5px;grid-column:span 6;min-width:0}
+.fld.s3{grid-column:span 3}.fld.s2{grid-column:span 2}.fld.s4{grid-column:span 4}
+@media (max-width:520px){.fld.s3,.fld.s2,.fld.s4{grid-column:span 6}}
+.fld label{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.fld input,.fld select,.fld textarea{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:9px 11px;width:100%}
+.fld textarea{min-height:92px;resize:vertical;line-height:1.5}
+.fld input.mono{font-family:var(--f-mono);font-size:13.5px}
+.fld .hint{font-size:12px;color:var(--muted)}
+.check{display:flex;align-items:center;gap:8px;grid-column:span 6;font-size:14px}
+.check input{width:18px;height:18px;accent-color:var(--gold)}
+.stars{display:flex;gap:4px}
+.star{border:0;background:transparent;font-size:24px;cursor:pointer;color:var(--line);padding:0 2px;line-height:1}
+.star.on{color:var(--gold)}
+.callout{border:1px solid var(--warn-soft);background:var(--warn-soft);color:var(--ink);border-radius:8px;padding:12px 14px;font-size:13.5px;grid-column:span 6;display:flex;flex-direction:column;gap:8px}
+.callout b{color:var(--warn)}
+.callout.info{background:var(--info-soft);border-color:var(--info-soft)}
+.callout.info b{color:var(--info)}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;z-index:40;font-size:14px;box-shadow:var(--shadow)}
+.foot{color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.foot b{font-family:var(--f-display);font-size:15px;color:var(--ink)}
+.brandrow{display:flex;align-items:flex-end;gap:16px;min-width:0}
+.mark{width:56px;height:56px;flex:0 0 auto;border-radius:12px;box-shadow:0 0 0 1px var(--line)}
+@media (max-width:520px){.mark{width:44px;height:44px}}
+/* v3: prateleira e posição */
+.posinfo{grid-column:span 6;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.posinfo .ok{color:var(--ok);font-weight:600}.posinfo .bad{color:var(--bad);font-weight:600}
+.posinfo .row2{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.gap{border:1px dashed var(--gold);background:var(--gold-soft);color:var(--gold-ink);border-radius:99px;padding:3px 10px;font-size:12.5px;cursor:pointer;font-weight:600}
+.arr-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media (max-width:560px){.arr-top{grid-template-columns:minmax(0,1fr)}}
+.arr-search{display:flex;flex-direction:column;gap:6px;border:2px solid var(--gold);border-radius:10px;padding:12px;background:var(--surface)}
+.arr-search input{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:11px 12px;font-size:16px;width:100%}
+.res{display:flex;flex-direction:column;gap:4px}
+.res button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:9px 11px;cursor:pointer}
+.res button:hover,.res button:focus-visible{border-color:var(--gold)}
+.res small{color:var(--muted)}
+.res .where{font-family:var(--f-mono);font-size:12px;color:var(--muted);white-space:nowrap}
+.slist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.sitem{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 10px;border-top:1px solid var(--line);font-size:13.5px}
+.sitem:first-child{border-top:0}
+.sitem .p{font-family:var(--f-display);font-size:20px;font-weight:700;color:var(--gold-ink);text-align:center;font-variant-numeric:tabular-nums}
+.sitem.dup{background:var(--bad-soft)}.sitem.dup .p{color:var(--bad)}
+.sitem.vaga{background:transparent;color:var(--muted);font-style:italic}
+.sitem .acts{display:flex;gap:4px}
+.flash{animation:flash 1.2s ease-out}
+@keyframes flash{from{background:var(--gold-soft)}to{background:transparent}}
+/* v4: relatórios */
+.rep-ctrl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
+@media (max-width:820px){.rep-ctrl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:460px){.rep-ctrl{grid-template-columns:minmax(0,1fr)}}
+.rep-ctrl .fld{grid-column:auto}
+.rep-ctrl input,.rep-ctrl select{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:8px 10px;width:100%}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.kpis div{background:var(--surface);padding:10px 12px;display:flex;flex-direction:column}
+.kpis b{font-family:var(--f-display);font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpis span{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.rgroups{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.rg{border-top:1px solid var(--line)}.rg:first-child{border-top:0}
+.rg>button{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(60px,1fr) 44px 48px;gap:10px;align-items:center;width:100%;background:transparent;border:0;padding:9px 12px;text-align:left;cursor:pointer;font-size:14px}
+.rg>button:hover{background:var(--sunk)}
+.rg .nm{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rg .track{height:7px;background:var(--sunk);border-radius:4px;overflow:hidden}.rg .fill{height:100%;background:var(--gold)}
+.rg .q{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}.rg .pc{text-align:right;color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+.rg ol{margin:0;padding:4px 12px 10px 36px;font-size:13.5px;display:flex;flex-direction:column;gap:3px}
+.rg ol li small{color:var(--muted)}
+.rg ol li button{background:none;border:0;padding:0;color:var(--ink);cursor:pointer;text-align:left;font:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+/* v2: número de localização, capa, organização */
+.num{font-family:var(--f-display);font-size:22px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;color:var(--gold-ink)}
+.idcol{display:flex;flex-direction:column;gap:3px}
+.spine .no{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--f-mono);font-size:8.5px;opacity:.85}
+.cover{width:84px;flex:0 0 auto;border-radius:3px;box-shadow:0 6px 18px rgba(0,0,0,.25);align-self:flex-start}
+.place{border:1px solid var(--gold-soft);background:var(--gold-soft);border-radius:8px;padding:12px 14px;grid-column:span 6;display:flex;flex-direction:column;gap:4px;font-size:13.5px}
+.place b{color:var(--gold-ink);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase}
+.place .big{font-family:var(--f-display);font-size:22px;font-weight:600;color:var(--ink)}
+.busy{position:fixed;inset:0;z-index:30;background:rgba(10,10,10,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.busy .box{background:var(--bg);border-radius:10px;padding:22px 24px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
+.busy .box h3{margin:0;font-family:var(--f-display);font-size:24px}
+.busy .thumbs{display:flex;gap:8px;flex-wrap:wrap}
+.busy .thumbs img{height:90px;border-radius:3px}
+.dots::after{content:"";animation:dots 1.4s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.plan{display:flex;flex-direction:column;gap:18px}
+.plan .shelfplan{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.plan .shelfplan h4{margin:0;padding:10px 14px;background:var(--sunk);font-size:13px;letter-spacing:.06em;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.plan ol{list-style:none;margin:0;padding:0}
+.plan li{display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:10px;padding:7px 14px;border-top:1px solid var(--line);font-size:13.5px;align-items:baseline}
+.plan li.sec{display:block;background:var(--gold-soft);color:var(--gold-ink);font-weight:700;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 14px}
+.plan li .n{font-family:var(--f-mono);color:var(--gold-ink)}
+.plan li .from{font-size:12px;color:var(--muted);white-space:nowrap}
+.order{display:flex;flex-direction:column;gap:4px}
+.order .it{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:13.5px}
+.order .it .ix{font-family:var(--f-mono);color:var(--muted);font-size:12px}
+.mini{border:1px solid var(--line);background:transparent;border-radius:4px;padding:2px 8px;cursor:pointer}
+.mini:disabled{opacity:.35;cursor:default}
+.progress{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.progress span{display:block;height:100%;background:var(--gold);width:0;transition:width .2s}
+/* v8: plano de leitura */
+.pqs{display:flex;flex-direction:column;gap:6px}
+.pq{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.pq-n{font-family:var(--f-display);font-size:22px;font-weight:700;color:var(--gold-ink);text-align:center}
+.pq-t{min-width:0}.pq-t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pq-t small,.pq-d small{display:block;color:var(--muted);font-size:12px}
+.pq-d{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pq-a{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:640px){.pq{grid-template-columns:26px minmax(0,1fr)}.pq-d{grid-column:2;text-align:left}.pq-a{grid-column:1/-1;justify-content:flex-start}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div class="brandrow"><img class="mark" src="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"%3E%3Crect width="64" height="64" rx="14" fill="#111111"/%3E%3Crect x="12" y="17" width="9" height="33" rx="1" fill="#C9A45C"/%3E%3Crect x="12" y="22" width="9" height="2" fill="#111111" opacity=".55"/%3E%3Crect x="12" y="43" width="9" height="2" fill="#111111" opacity=".55"/%3E%3Crect x="23" y="11" width="8" height="39" rx="1" fill="#E8D19A"/%3E%3Crect x="23" y="16" width="8" height="2" fill="#111111" opacity=".45"/%3E%3Crect x="23" y="43" width="8" height="2" fill="#111111" opacity=".45"/%3E%3Crect x="33" y="20" width="9" height="30" rx="1" fill="#C9A45C"/%3E%3Crect x="33" y="25" width="9" height="2" fill="#111111" opacity=".55"/%3E%3Crect x="44.5" y="18" width="8" height="32" rx="1" fill="#9C7A35" transform="rotate(16 52.5 50)"/%3E%3Crect x="9" y="50" width="46" height="3.5" rx="1.75" fill="#E8D19A"/%3E%3C/svg%3E" alt="" width="56" height="56">
+    <div class="brand">
+      <span class="eyebrow">Ex libris · acervo pessoal</span>
+      <h1>Biblioteca <em>Mário Rubens</em></h1>
+      <p class="sub">Catálogo completo dos livros da estante: ficha bibliográfica, lugar na prateleira, leitura, empréstimos e pendências de cadastro.</p>
+    </div></div>
+    <div class="head-actions">
+      <button class="btn ghost" id="btnExport" type="button">Exportar planilha</button>
+      <button class="btn" id="btnPlan" type="button">Plano de leitura</button>
+      <button class="btn" id="btnRep" type="button">Relatórios</button>
+      <button class="btn" id="btnArr" type="button">Arrumar prateleira</button>
+      <button class="btn ghost" id="btnOrg" type="button">Organizar por assunto</button>
+      <button class="btn" id="btnNew" type="button">+ Cadastrar à mão</button>
+      <label class="btn primary" id="lblPhoto" for="photoIn">Cadastrar por foto da capa</label>
+      <input id="photoIn" type="file" accept="image/*" multiple hidden>
+    </div>
+  </header>
+
+  <section class="stats" id="stats" aria-label="Resumo do acervo"></section>
+
+  <section class="shelf-box" aria-label="Estante">
+    <div class="sec-title"><h2>A estante</h2><span id="shelfInfo">Cada lombada é um livro, na ordem da prateleira. Toque para abrir a ficha.</span></div>
+    <div class="shelf"><div class="spines" id="spines"><div class="shelf-empty">Carregando o acervo…</div></div></div>
+  </section>
+
+  <div class="main">
+    <section style="display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div class="sec-title"><h2>Catálogo</h2><span id="count"></span></div>
+      <div class="toolbar">
+        <label class="search"><span aria-hidden="true" style="color:var(--muted)">⌕</span><input id="q" type="search" placeholder="Buscar por título, autor, nº, editora, ISBN, assunto…" aria-label="Buscar"></label>
+        <select class="f" id="fCat" aria-label="Seção"></select>
+        <select class="f" id="fSort" aria-label="Ordenar">
+          <option value="pos">Ordem na estante</option>
+          <option value="titulo">Título (A a Z)</option>
+          <option value="autor">Autor (A a Z)</option>
+          <option value="ano">Ano (mais recente)</option>
+          <option value="codigo">Ordem de cadastro</option>
+        </select>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="list" id="list"></div>
+    </section>
+    <aside class="side">
+      <div class="card"><h3>Por seção</h3><div class="bars" id="bars"></div></div>
+      <div class="card"><h3>Editoras mais presentes</h3><div class="bars" id="pubs"></div></div>
+      <div class="card"><h3>Como funciona a numeração</h3>
+        <p class="note"><b>Arrumar prateleira</b>: escolha a prateleira, digite parte do título do livro que está na mão e toque nele. O sistema dá a próxima posição livre e nunca repete posição.</p>
+        <p class="note"><b>Nº</b> é o número de localização: a ordem do livro na estante depois de organizada por assunto. <b>MR</b> é o registro de cadastro e nunca muda. Um livro novo recebe um número provisório (ex.: 045.1) entre os vizinhos até a próxima renumeração.</p>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="foot"><span><b>Biblioteca Mário Rubens</b> · Ex libris, acervo pessoal</span><span style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span id="sync">Conectando ao acervo…</span></span></footer>
+</div>
+
+<div id="drawerRoot"></div>
+<div id="busyRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+(() => {
+const DEFAULT_ORDER = ["Mercado Imobiliário","Negócios e Gestão","Liderança","Vendas e Marketing","Finanças","Biografia","Desenvolvimento Pessoal","Relacionamentos","Espiritualidade e Fé","Direito","Arquitetura e Design","História","Literatura","Acadêmico/Didático","Outros"];
+const STATUS = {nao:"Não lido",lendo:"Lendo",parcial:"Lido parcialmente",lido:"Lido",relendo:"Relendo",abandonado:"Abandonado",consulta:"Consulta"};
+const STATUS_CLS = {nao:"p-nao",lendo:"p-lendo",parcial:"p-parcial",lido:"p-lido",relendo:"p-lendo",abandonado:"p-aband",consulta:"p-nao"};
+const FORMATOS = ["Brochura","Capa dura","Edição de bolso","eBook","Audiobook","Apostila"];
+const CONSERV = ["Novo","Ótimo","Bom","Regular","Desgastado"];
+const ORIGENS = ["Compra","Presente","Herança","Troca","Evento/curso","Brinde","Outro"];
+
+let db=null, assets=null, books=[], cfg={ordem:DEFAULT_ORDER.slice(),por_prateleira:50,estante:"Estante principal",organizado_em:null};
+let filt={q:"",cat:"",chip:"todos",sort:"pos"}, canWrite=true, sampleFn=undefined, downloads=undefined;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+const authors=b=>(b.autores&&b.autores.length?b.autores.join(", "):(b.organizador?b.organizador+" (org.)":"Autor a confirmar"));
+const pend=b=>!b.conferido && !!(b.pendencia||"").trim();
+const emprest=b=>!!(b.emprestado_para||"").trim();
+const cats=()=>{const s=new Set(cfg.ordem);books.forEach(b=>b.categoria&&s.add(b.categoria));return [...s]};
+function lum(hex){const h=(hex||"#888").replace("#","");const n=parseInt(h.length===3?h.split("").map(c=>c+c).join(""):h,16);const r=(n>>16)&255,g=(n>>8)&255,b=n&255;return (0.299*r+0.587*g+0.114*b)/255}
+const spineInk=c=>lum(c)>0.6?"#151515":"#F5F1E8";
+const coverSrc=b=>b._capaPreview||(b.capa_id?window.capaURL(b.capa_id):"");
+function toast(msg){const r=$("#toastRoot");r.innerHTML=`<div class="toast" role="status">${esc(msg)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>r.innerHTML="",3000)}
+
+/* ---------- Ordem por assunto ---------- */
+const SUFX=new Set(["jr","jr.","junior","júnior","filho","neto","sobrinho","ph.d.","phd"]);
+function surname(name){const p=String(name||"").trim().split(/\s+/).filter(Boolean);while(p.length>1&&SUFX.has(norm(p[p.length-1])))p.pop();return p.length?p[p.length-1]:""}
+function volNum(b){const m=String(b.volume||"").match(/\d+/)||String(b.serie||"").match(/(?:v\.|vol\.?|volume)\s*(\d+)/i);return m?+(m[1]||m[0]):0}
+function seriesName(b){return String(b.serie||"").replace(/,?\s*(v\.|vol\.?|volume)\s*\d+.*$/i,"").trim()}
+/* Coleções ficam juntas: a seção da coleção é a mais frequente entre seus volumes */
+function seriesSec(name){const m={};books.forEach(x=>{if(seriesName(x)===name&&x.categoria)m[x.categoria]=(m[x.categoria]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1]||cfg.ordem.indexOf(a[0])-cfg.ordem.indexOf(b[0]))[0]?.[0]}
+function shelfSec(b){const s=seriesName(b);return (s&&seriesSec(s))||b.categoria}
+function secIdx(b){const i=cfg.ordem.indexOf(shelfSec(b));return i<0?cfg.ordem.length:i}
+function groupKey(b){const s=seriesName(b);if(s)return norm(s);const a=(b.autores&&b.autores[0])||b.organizador||"";return norm(surname(a)+" "+a)}
+function cmpOrg(a,b){return secIdx(a)-secIdx(b)||groupKey(a).localeCompare(groupKey(b),"pt-BR")||volNum(a)-volNum(b)||norm(a.titulo).localeCompare(norm(b.titulo),"pt-BR")||String(a.codigo).localeCompare(String(b.codigo))}
+const pad=n=>String(n).padStart(3,"0");
+function numVal(b){if(!b.numero)return null;const [i,f]=String(b.numero).split(".");return (+i)+(f?(+f)/1000:0)}
+/* ---------- Prateleira e posição ---------- */
+const normShelf=s=>{s=String(s??"").trim().toUpperCase().replace(/\s+/g,"");const m=s.match(/^0*(\d+)(.*)$/);return m?(m[1]||"0")+m[2]:s};
+function shelfKey(s){const n=normShelf(s);const m=n.match(/^(\d+)(.*)$/);return m?[+m[1],m[2]]:[n?9998:9999,n]}
+function cmpShelf(a,b){const x=shelfKey(a),y=shelfKey(b);return x[0]-y[0]||x[1].localeCompare(y[1])}
+const hasPlace=b=>!!normShelf(b.prateleira)&&+b.posicao>0;
+function onShelf(sh,exceptId){const k=normShelf(sh);if(!k)return [];return books.filter(b=>b.id!==exceptId&&normShelf(b.prateleira)===k&&+b.posicao>0).sort((a,b)=>a.posicao-b.posicao)}
+function shelfInfo(sh,exceptId){const list=onShelf(sh,exceptId);const used=new Set(list.map(b=>+b.posicao));const max=list.reduce((m,b)=>Math.max(m,+b.posicao),0);const gaps=[];for(let i=1;i<max;i++)if(!used.has(i))gaps.push(i);return {list,used,max,next:max+1,gaps}}
+const occupant=(sh,pos,exceptId)=>onShelf(sh,exceptId).find(b=>+b.posicao===+pos);
+function shelves(){return [...new Set(books.map(b=>normShelf(b.prateleira)).filter(Boolean))].sort(cmpShelf)}
+function dupIds(){const m={};books.forEach(b=>{if(hasPlace(b)){const k=normShelf(b.prateleira)+"|"+(+b.posicao);(m[k]=m[k]||[]).push(b.id)}});return new Set(Object.values(m).filter(a=>a.length>1).flat())}
+/* abre espaço: empurra +1 todos da prateleira a partir de pos */
+async function shiftFrom(sh,pos,exceptId){
+  const list=onShelf(sh,exceptId).filter(b=>+b.posicao>=+pos).sort((a,b)=>b.posicao-a.posicao);
+  for(const b of list){ await db.collection("livros").doc(b.id).update({posicao:+b.posicao+1,atualizado_em:new Date().toISOString()}) }
+  return list.length;
+}
+/* Planeja a mudança de lugar de um livro sem repetir posição:
+   fecha o espaço na posição antiga (se ninguém mais ocupa) e abre espaço na nova (empurra +1). */
+function planMove(id,newSh,newPos,{close=true,shift=true}={}){
+  const self=books.find(b=>b.id===id)||{}; const oldSh=normShelf(self.prateleira), oldPos=+self.posicao||0;
+  const map={}; books.forEach(b=>{ if(b.id!==id&&hasPlace(b)) map[b.id]={sh:normShelf(b.prateleira),pos:+b.posicao,orig:+b.posicao} });
+  const moved=!!oldSh&&oldPos>0&&(oldSh!==newSh||oldPos!==newPos);
+  let closed=0;
+  if(close&&moved&&!Object.values(map).some(m=>m.sh===oldSh&&m.pos===oldPos)){
+    Object.values(map).forEach(m=>{ if(m.sh===oldSh&&m.pos>oldPos){m.pos--;closed++} });
+  }
+  let pos=newPos, pushed=0;
+  if(newSh){
+    if(!(pos>0)) pos=Object.values(map).filter(m=>m.sh===newSh).reduce((x,m)=>Math.max(x,m.pos),0)+1;
+    if(Object.values(map).some(m=>m.sh===newSh&&m.pos===pos)){
+      if(!shift) return {blocked:true,pos};
+      Object.values(map).forEach(m=>{ if(m.sh===newSh&&m.pos>=pos){m.pos++;pushed++} });
+    }
+  } else pos=null;
+  const updates=Object.entries(map).filter(([,m])=>m.pos!==m.orig).map(([bid,m])=>({id:bid,pos:m.pos}));
+  return {pos,updates,closed,pushed,oldSh,oldPos,moved};
+}
+async function applyUpdates(updates){
+  const now=new Date().toISOString();
+  // grava primeiro os que recuam, depois os que avançam (do fim para o começo)
+  const down=updates.filter(u=>{const b=books.find(x=>x.id===u.id);return u.pos<+b.posicao}).sort((a,b)=>a.pos-b.pos);
+  const up=updates.filter(u=>!down.includes(u)).sort((a,b)=>b.pos-a.pos);
+  for(const u of [...down,...up]) await db.collection("livros").doc(u.id).update({posicao:u.pos,atualizado_em:now});
+}
+function shelfOrder(arr){
+  return arr.slice().sort((a,b)=>{
+    const pa=hasPlace(a),pb=hasPlace(b); if(pa&&!pb)return -1; if(pb&&!pa)return 1;
+    if(pa&&pb) return cmpShelf(a.prateleira,b.prateleira)||(+a.posicao)-(+b.posicao)||String(a.codigo).localeCompare(String(b.codigo));
+    const na=numVal(a),nb=numVal(b); if(na!=null&&nb!=null)return na-nb;
+    return String(a.codigo).localeCompare(String(b.codigo))});
+}
+function buildPlan(){
+  const sorted=books.slice().sort(cmpOrg), cap=Math.max(5,+cfg.por_prateleira||50);
+  return sorted.map((b,i)=>({b,numero:pad(i+1),prateleira:String(Math.floor(i/cap)+1),posicao:(i%cap)+1}));
+}
+/* Onde um livro (novo ou sem número) deve ficar */
+function placement(book){
+  const others=books.filter(x=>x.id!==book.id);
+  const numbered=others.filter(x=>x.numero).sort((a,b)=>numVal(a)-numVal(b));
+  const sec=shelfSec(book)||"Sem seção";
+  if(!cfg.organizado_em||!numbered.length){
+    const same=others.filter(x=>shelfSec(x)===shelfSec(book)).sort(cmpOrg);
+    const idx=same.findIndex(x=>cmpOrg(book,x)<0); const prev=idx<0?same[same.length-1]:same[idx-1], next=idx<0?null:same[idx];
+    return {organized:false,sec,prev,next};
+  }
+  let prev=null,next=null;
+  for(const x of numbered){ if(cmpOrg(x,book)<0) prev=x; else { next=x; break } }
+  let numero;
+  const fl=x=>Math.floor(numVal(x));
+  if(prev&&next&&fl(next)-fl(prev)>1) numero=pad(fl(prev)+1);
+  else { const base=prev?pad(fl(prev)):"000"; const subs=others.filter(x=>String(x.numero||"").startsWith(base+".")).map(x=>+String(x.numero).split(".")[1]||0); numero=base+"."+(Math.max(0,...subs)+1) }
+  const ref=prev||next;
+  return {organized:true,sec,prev,next,numero,prateleira:ref?ref.prateleira:"1",estante:ref?ref.estante:cfg.estante};
+}
+function placeBox(book){
+  if(!book.categoria) return `<div class="place"><b>Lugar na estante</b><span>Escolha a seção (categoria) para o sistema indicar onde o livro fica.</span></div>`;
+  if(hasPlace(book)&&!book._new) return `<div class="place"><b>Lugar na estante</b><span class="big">Prateleira ${esc(normShelf(book.prateleira))} · posição ${esc(book.posicao)}</span><span>${esc(book.estante||cfg.estante)}${book.numero?" · nº "+esc(book.numero):""} · seção ${esc(shelfSec(book)||"sem seção")}</span></div>`;
+  const p=placement(book);
+  if(book.numero && !book._new) return `<div class="place"><b>Lugar na estante</b><span class="big">Nº ${esc(book.numero)}</span><span>${esc(book.estante||cfg.estante)} · prateleira ${esc(book.prateleira||"?")}, posição ${esc(book.posicao||"?")} · seção ${esc(p.sec)}</span></div>`;
+  const nb=x=>x?`${x.numero?"nº "+esc(x.numero)+" · ":""}${esc(x.titulo)}`:"";
+  if(!p.organized) return `<div class="place"><b>Lugar na estante</b><span class="big">Seção ${esc(p.sec)}</span><span>${p.prev||p.next?`Fica ${p.prev?`depois de <i>${nb(p.prev)}</i>`:""}${p.prev&&p.next?" e ":""}${p.next?`antes de <i>${nb(p.next)}</i>`:""}.`:"Primeiro livro desta seção."} O número definitivo sai quando você aplicar a organização por assunto.</span></div>`;
+  return `<div class="place"><b>Lugar na estante</b><span class="big">Nº ${esc(p.numero)} <small style="font-size:14px;color:var(--muted)">(provisório)</small></span><span>Prateleira ${esc(p.prateleira)} · ${p.prev?`depois de <i>${nb(p.prev)}</i>`:""}${p.prev&&p.next?" e ":""}${p.next?`antes de <i>${nb(p.next)}</i>`:""}</span></div>`;
+}
+
+/* ---------- Render ---------- */
+function filtered(){
+  let arr=books.slice();
+  const q=norm(filt.q).trim();
+  if(q) arr=arr.filter(b=>norm([b.numero,b.codigo,b.titulo,b.subtitulo,authors(b),b.organizador,b.tradutor,b.editora,b.isbn,b.serie,(b.assuntos||[]).join(" "),b.categoria,b.titulo_original].join(" ")).includes(q));
+  if(filt.cat) arr=arr.filter(b=>b.categoria===filt.cat);
+  const c=filt.chip;
+  if(c==="pend") arr=arr.filter(pend);
+  else if(c==="emp") arr=arr.filter(emprest);
+  else if(c==="semnum") arr=arr.filter(b=>!b.numero);
+  else if(c==="semlugar") arr=arr.filter(b=>!hasPlace(b));
+  else if(c==="dup"){const d=dupIds(); arr=arr.filter(b=>d.has(b.id))}
+  else if(c==="fila"){ arr=arr.filter(b=>+b.fila>0); if(filt.sort==="pos") return arr.sort((a,b)=>a.fila-b.fila) }
+  else if(c!=="todos") arr=arr.filter(b=>(b.status_leitura||"nao")===c);
+  const s=filt.sort, cmp=(a,b)=>String(a).localeCompare(String(b),"pt-BR");
+  if(s==="pos") return shelfOrder(arr);
+  arr.sort((a,b)=> s==="titulo"?cmp(a.titulo,b.titulo): s==="autor"?cmp(surname((a.autores||[])[0]||a.organizador),surname((b.autores||[])[0]||b.organizador)): s==="ano"?((b.ano||0)-(a.ano||0)): cmp(a.codigo,b.codigo));
+  return arr;
+}
+function renderStats(){
+  const n=books.length, lidos=books.filter(b=>b.status_leitura==="lido").length, lendo=books.filter(b=>["lendo","relendo"].includes(b.status_leitura)).length,
+    emp=books.filter(emprest).length, pd=books.filter(pend).length, pg=books.reduce((s,b)=>s+(+b.paginas||0),0), aut=new Set(books.flatMap(b=>b.autores||[])).size;
+  const dups=dupIds().size, sem=books.filter(b=>!hasPlace(b)).length;
+  const items=[["todos",n,"Volumes"],["semlugar",sem,"Sem lugar na estante",false],["dup",dups,"Posições repetidas",dups>0],["lido",lidos,"Lidos"],["lendo",lendo,"Em leitura"],["parcial",books.filter(b=>b.status_leitura==="parcial").length,"Lidos parcialmente"],["fila",books.filter(b=>+b.fila>0).length,"Na fila de leitura"],["emp",emp,"Emprestados"],["pend",pd,"A conferir",pd>0],[null,aut,"Autores"],[null,pg.toLocaleString("pt-BR"),"Páginas catalogadas"]];
+  $("#stats").innerHTML=items.map(([k,v,l,a])=>`<button class="stat ${a?"alert":""}" type="button" ${k?`data-chip="${k}"`:"tabindex='-1'"}><span class="n">${v}</span><span class="l">${l}</span></button>`).join("");
+}
+function renderSpines(){
+  const box=$("#spines");
+  if(!books.length){box.innerHTML=`<div class="shelf-empty">${db?"A estante está vazia. Cadastre o primeiro livro.":"Carregando o acervo…"}</div>`;return}
+  const vis=new Set(filtered().map(b=>b.id));
+  box.innerHTML=shelfOrder(books).map(b=>{const c=b.cor_lombada||"#7a7266";const p=+b.paginas||220;const h=Math.round(Math.max(130,Math.min(190,140+((b.titulo||"").length%5)*9)));const w=Math.round(Math.max(18,Math.min(44,p/9)));
+    return `<button class="spine ${vis.has(b.id)?"":"dim"}" type="button" data-id="${esc(b.id)}" title="${b.numero?"Nº "+esc(b.numero)+" · ":""}${esc(b.titulo)} · ${esc(authors(b))}" style="background:${esc(c)};color:${spineInk(c)};height:${h}px;width:${w}px">${pend(b)?'<i class="flag"></i>':""}<span>${esc(b.titulo)}</span>${b.numero&&w>=22?`<i class="no">${esc(b.numero)}</i>`:""}</button>`}).join("");
+  $("#shelfInfo").textContent=cfg.organizado_em?`Organizada por assunto em ${new Date(cfg.organizado_em).toLocaleDateString("pt-BR")}. Toque numa lombada para abrir a ficha.`:"Ordem atual da prateleira, ainda sem organização por assunto. Toque numa lombada para abrir a ficha.";
+}
+function renderChips(){
+  const opts=[["todos","Todos"],["fila","Fila de leitura"],["nao","Não lidos"],["lendo","Lendo"],["parcial","Lidos parcialmente"],["lido","Lidos"],["abandonado","Abandonados"],["emp","Emprestados"],["pend","A conferir"]];
+  opts.push(["semlugar","Sem lugar"],["dup","Posição repetida"]);
+  if(cfg.organizado_em) opts.push(["semnum","Sem número"]);
+  $("#chips").innerHTML=opts.map(([k,l])=>`<button type="button" class="chip ${filt.chip===k?"on":""}" data-chip="${k}">${l}</button>`).join("");
+  const present=new Set(books.map(b=>b.categoria).filter(Boolean));
+  $("#fCat").innerHTML=`<option value="">Todas as seções</option>`+cats().filter(c=>present.has(c)).map(c=>`<option ${filt.cat===c?"selected":""}>${esc(c)}</option>`).join("");
+}
+function renderList(){
+  const arr=filtered();
+  $("#count").textContent=`${arr.length} de ${books.length} ${books.length===1?"livro":"livros"}`;
+  if(!books.length){$("#list").innerHTML=`<div class="empty"><b>Nenhum livro cadastrado ainda</b>Use “Cadastrar por foto da capa” para lançar o primeiro título.</div>`;return}
+  if(!arr.length){$("#list").innerHTML=`<div class="empty"><b>Nada encontrado</b>Ajuste a busca ou os filtros.</div>`;return}
+  const dset=dupIds();
+  $("#list").innerHTML=arr.map(b=>{
+    const st=b.status_leitura||"nao";
+    return `<button class="row" type="button" data-id="${esc(b.id)}">
+      <span class="sw" style="background:${esc(b.cor_lombada||"#7a7266")}"></span>
+      <span class="idcol">${b.numero?`<span class="num">${esc(b.numero)}</span>`:""}<span class="code">${esc(b.codigo)}</span></span>
+      <span class="t">${esc(b.titulo)}<small>${esc(authors(b))}</small></span>
+      <span class="meta">${hasPlace(b)?`<b style="color:var(--gold-ink)">Prat. ${esc(normShelf(b.prateleira))} · pos. ${esc(b.posicao)}</b>`:`<i>Sem lugar na estante</i>`}<br>${esc(b.categoria||"")}</span>
+      <span class="pills"><span class="pill ${STATUS_CLS[st]}">${STATUS[st]}</span>${emprest(b)?'<span class="pill p-emp">Emprestado</span>':""}${pend(b)?'<span class="pill p-pend">A conferir</span>':""}${dset.has(b.id)?'<span class="pill p-aband">Posição repetida</span>':""}</span>
+    </button>`}).join("");
+}
+function renderBars(){
+  const cnt=(key)=>{const m={};books.forEach(b=>{const k=b[key]||"Não informada";m[k]=(m[k]||0)+1});return Object.entries(m)};
+  const draw=(el,rows,clickable)=>{const max=Math.max(1,...rows.map(r=>r[1]));el.innerHTML=rows.length?rows.map(([k,v])=>`<button type="button" class="bar" ${clickable?`data-cat="${esc(k)}"`:"tabindex='-1'"}><span class="lab"><span>${esc(k)}</span><span class="track"><span class="fill" style="display:block;width:${(v/max*100).toFixed(1)}%"></span></span></span><span class="v">${v}</span></button>`).join(""):`<p class="note">Sem dados ainda.</p>`};
+  draw($("#bars"),cnt("categoria").sort((a,b)=>cfg.ordem.indexOf(a[0])-cfg.ordem.indexOf(b[0])),true);
+  draw($("#pubs"),cnt("editora").filter(r=>r[0]!=="Não informada").sort((a,b)=>b[1]-a[1]).slice(0,6),false);
+}
+function renderAll(){renderStats();renderChips();renderSpines();renderList();renderBars()}
+
+/* ---------- Ficha ---------- */
+let cur=null, tab="ficha";
+function nextCode(){const n=books.reduce((m,b)=>Math.max(m,parseInt(String(b.codigo||"").replace(/\D/g,""))||0),0)+1;return "MR-"+String(n).padStart(4,"0")}
+function openBook(id){const b=books.find(x=>x.id===id);if(!b)return;cur=JSON.parse(JSON.stringify(b));cur._new=false;tab="ficha";drawDrawer()}
+function newBook(pre={}){
+  cur={_new:true,codigo:nextCode(),titulo:"",autores:[],status_leitura:"nao",formato:"Brochura",idioma:"Português",estante:cfg.estante,cor_lombada:"#7a7266",conferido:true,assuntos:[],...pre};
+  tab="ficha"; drawDrawer();
+}
+function closeDrawer(){arrOpen=false;repOpen=false;planOpen=false;if(cur&&cur._capaPreview)URL.revokeObjectURL(cur._capaPreview);cur=null;$("#drawerRoot").innerHTML="";document.querySelectorAll(".spine.sel").forEach(s=>s.classList.remove("sel"))}
+const F=(k,label,o={})=>{
+  const v=cur[k]; const cls=o.span?`s${o.span}`:""; const id="f_"+k;
+  let input;
+  if(o.type==="select") input=`<select id="${id}" data-k="${k}">${o.blank?'<option value="">Selecione</option>':""}${o.opts.map(x=>Array.isArray(x)?`<option value="${esc(x[0])}" ${v===x[0]?"selected":""}>${esc(x[1])}</option>`:`<option ${v===x?"selected":""}>${esc(x)}</option>`).join("")}</select>`;
+  else if(o.type==="area") input=`<textarea id="${id}" data-k="${k}" placeholder="${esc(o.ph||"")}">${esc(v)}</textarea>`;
+  else input=`<input id="${id}" data-k="${k}" type="${o.type||"text"}" ${o.list?`data-list="1"`:""} class="${o.mono?"mono":""}" value="${esc(Array.isArray(v)?v.join("; "):(v??""))}" placeholder="${esc(o.ph||"")}" ${o.type==="number"?'inputmode="numeric"':""}>`;
+  return `<div class="fld ${cls}"><label for="${id}">${label}</label>${input}${o.hint?`<span class="hint">${o.hint}</span>`:""}</div>`;
+};
+function body(){
+  if(tab==="ficha") return `<div class="grid">
+    ${pend(cur)?`<div class="callout"><b>Dados a conferir</b><span>${esc(cur.pendencia)}</span><span class="hint">Com o livro em mãos, confira a folha de rosto e a ficha catalográfica. Depois marque “Dados conferidos” na aba Exemplar.</span></div>`:""}
+    ${cur._dup?`<div class="callout"><b>Possível duplicado</b><span>Já existe <i>${esc(cur._dup.titulo)}</i> (${esc(cur._dup.numero?"nº "+cur._dup.numero:cur._dup.codigo)}). Se for um segundo exemplar, salve normalmente.</span></div>`:""}
+    ${placeBox(cur)}
+    ${cur._new&&!cur._fromPhoto?`<div class="callout info"><b>Cadastro rápido</b><span>Digite o título (e o autor, se souber) e toque em “Sugerir dados”. Confira com o livro em mãos antes de salvar.</span><span><button class="btn" type="button" id="btnSuggest">Sugerir dados</button></span></div>`:""}
+    ${F("titulo","Título",{ph:"Título principal"})}
+    ${F("subtitulo","Subtítulo")}
+    ${F("autores","Autor(es)",{list:1,hint:"Separe vários autores com ponto e vírgula."})}
+    ${F("organizador","Organizador",{span:3})}${F("tradutor","Tradutor",{span:3})}
+    ${F("titulo_original","Título original",{span:4})}${F("idioma_original","Idioma original",{span:2})}
+    ${F("editora","Editora",{span:4})}${F("ano","Ano",{span:2,type:"number"})}
+    ${F("edicao","Edição",{span:2,ph:"1ª"})}${F("paginas","Páginas",{span:2,type:"number"})}${F("idioma","Idioma",{span:2})}
+    ${F("isbn","ISBN",{span:3,mono:1,ph:"978…",hint:"No verso do livro ou na ficha catalográfica."})}${F("categoria","Seção (assunto)",{span:3,type:"select",opts:cats(),blank:1})}
+    ${F("serie","Série / coleção",{span:4})}${F("volume","Volume",{span:2})}
+    ${F("prefacio","Prefácio",{span:3})}${F("cdu","CDU / CDD",{span:3,mono:1})}
+    ${F("assuntos","Assuntos",{list:1,hint:"Palavras-chave separadas por ponto e vírgula."})}
+    ${F("sinopse","Sinopse",{type:"area"})}
+  </div>`;
+  if(tab==="exemplar") return `<div class="grid">
+    ${F("numero","Nº de localização",{span:2,mono:1,hint:"Definido pela organização."})}${F("codigo","Registro (MR)",{span:2,mono:1})}${F("estante","Estante",{span:2})}
+    <div class="fld s3"><label for="f_prateleira">Prateleira</label><input id="f_prateleira" data-k="prateleira" list="dlShelves" autocomplete="off" value="${esc(cur.prateleira||"")}" placeholder="Ex.: 1A"><datalist id="dlShelves">${shelves().map(x=>`<option value="${esc(x)}">`).join("")}</datalist></div>
+    <div class="fld s3"><label for="f_posicao">Posição</label><input id="f_posicao" data-k="posicao" type="number" min="1" inputmode="numeric" value="${esc(cur.posicao??"")}" placeholder="Automática"></div>
+    <div class="posinfo" id="posInfo" aria-live="polite"></div>
+    ${F("formato","Formato",{span:3,type:"select",opts:FORMATOS,blank:1})}${F("conservacao","Conservação",{span:3,type:"select",opts:CONSERV,blank:1})}
+    ${F("aquisicao_origem","Origem",{span:2,type:"select",opts:ORIGENS,blank:1})}${F("aquisicao_data","Data de aquisição",{span:2,type:"date"})}${F("valor_pago","Valor pago (R$)",{span:2,type:"number"})}
+    ${F("aquisicao_obs","Onde comprou / quem presenteou",{})}
+    <div class="fld s3"><label for="capaIn">Foto da capa</label><input id="capaIn" type="file" accept="image/*" ${assets?"":"disabled"}><span class="hint">${assets?"A foto aparece na ficha.":"Disponível só para quem edita o acervo."}</span></div>
+    <div class="fld s3"><label for="f_cor_lombada">Cor da lombada</label><input id="f_cor_lombada" data-k="cor_lombada" type="color" value="${esc(cur.cor_lombada||"#7a7266")}" style="height:42px;padding:4px"></div>
+    <label class="check"><input type="checkbox" id="f_autografado" data-k="autografado" ${cur.autografado?"checked":""}> Exemplar autografado</label>
+    <label class="check"><input type="checkbox" id="f_conferido" data-k="conferido" ${cur.conferido?"checked":""}> Dados conferidos com o livro em mãos</label>
+    ${F("pendencia","Pendência de cadastro",{type:"area",ph:"O que ainda falta confirmar neste exemplar"})}
+  </div>`;
+  if(tab==="leitura") { const r=+cur.avaliacao||0; return `<div class="grid">
+    ${F("status_leitura","Situação",{span:3,type:"select",opts:Object.entries(STATUS)})}
+    <div class="fld s3"><label>Avaliação</label><div class="stars">${[1,2,3,4,5].map(i=>`<button type="button" class="star ${i<=r?"on":""}" data-star="${i}" aria-label="${i} de 5">★</button>`).join("")}</div></div>
+    ${F("paginas_lidas","Páginas já lidas",{span:3,type:"number",hint:cur.paginas?`De ${cur.paginas} páginas. Usado no plano de leitura.`:"Usado no plano de leitura."})}
+    <label class="check" style="grid-column:span 3;align-self:end"><input type="checkbox" id="f__naFila" data-k="_naFila" ${(cur._naFila??(+cur.fila>0))?"checked":""}> Na fila de leitura${+cur.fila>0?` (prioridade ${filaPos(cur.id)})`:""}</label>
+    ${F("inicio_leitura","Início da leitura",{span:3,type:"date"})}${F("fim_leitura","Fim da leitura",{span:3,type:"date"})}
+    ${F("notas","Anotações pessoais",{type:"area",ph:"Ideias principais, aplicações práticas, reflexões"})}
+    ${F("citacoes","Citações favoritas",{type:"area",ph:"Uma citação por linha, com a página"})}
+    ${F("indicado_para","Indicaria para",{ph:"Ex.: filhos, amigos, quem está começando na área"})}
+  </div>`}
+  if(tab==="emprestimo") return `<div class="grid">
+    ${F("emprestado_para","Emprestado para",{ph:"Nome de quem está com o livro"})}
+    ${F("emprestado_em","Data do empréstimo",{span:3,type:"date"})}${F("devolucao_prevista","Devolução prevista",{span:3,type:"date"})}
+    ${F("emprestimo_obs","Observações",{type:"area"})}
+    ${emprest(cur)?`<div class="fld"><button class="btn" type="button" id="btnReturn">Registrar devolução</button></div>`:""}
+    ${(cur.historico_emprestimos||[]).length?`<div class="fld"><label>Histórico</label><div class="note">${cur.historico_emprestimos.map(h=>`${esc(h.para)} · ${esc(h.de||"?")} a ${esc(h.ate||"?")}`).join("<br>")}</div></div>`:""}
+  </div>`;
+}
+function drawDrawer(){
+  const c=cur.cor_lombada||"#7a7266", cv=coverSrc(cur);
+  $("#drawerRoot").innerHTML=`<div class="scrim" id="scrim"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="Ficha do livro">
+    <div class="d-head">${cv?`<img class="cover" src="${esc(cv)}" alt="Capa">`:`${cur.capa_id?`<img class="cover" data-capa="${esc(cur.capa_id)}" alt="Capa" hidden>`:""}<span class="d-spine" style="background:${esc(c)}"></span>`}
+      <div class="d-title"><span class="code">${cur.numero?`Nº ${esc(cur.numero)} · `:""}${esc(cur.codigo)}${cur.prateleira?` · prateleira ${esc(cur.prateleira)}`:""}</span>
+        <h2>${esc(cur.titulo||"Novo livro")}</h2><p>${cur._new&&!cur.titulo?"Preencha a ficha abaixo":esc(authors(cur))}</p></div>
+      <button class="x" type="button" id="btnClose" aria-label="Fechar">×</button></div>
+    <nav class="tabs">${[["ficha","Ficha bibliográfica"],["exemplar","Exemplar"],["leitura","Leitura"],["emprestimo","Empréstimo"]].map(([k,l])=>`<button type="button" class="tab ${tab===k?"on":""}" data-tab="${k}">${l}</button>`).join("")}</nav>
+    <div class="d-body" id="dBody">${body()}</div>
+    <div class="d-foot"><div class="grp" id="delGrp">${cur._new?"":`<button class="btn danger" type="button" id="btnDel">Excluir</button>`}</div>
+      <div class="grp"><button class="btn ghost" type="button" id="btnCancel">Fechar</button><button class="btn primary" type="button" id="btnSave" ${canWrite?"":"disabled"}>${cur._new?"Cadastrar livro":"Salvar ficha"}</button></div></div>
+  </aside>`;
+  bindDrawer();
+  document.querySelectorAll(".spine").forEach(s=>s.classList.toggle("sel",s.dataset.id===cur.id));
+}
+function readFields(){
+  document.querySelectorAll("#dBody [data-k]").forEach(el=>{
+    const k=el.dataset.k;
+    if(el.type==="checkbox") cur[k]=el.checked;
+    else if(el.type==="number") cur[k]=el.value===""?null:Number(el.value);
+    else if(el.dataset.list) cur[k]=el.value.split(";").map(s=>s.trim()).filter(Boolean);
+    else cur[k]=el.value;
+  });
+}
+function bindDrawer(){
+  $("#scrim").onclick=closeDrawer; $("#btnClose").onclick=closeDrawer; $("#btnCancel").onclick=closeDrawer;
+  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{readFields();tab=t.dataset.tab;$("#dBody").innerHTML=body();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===t));bindBody()});
+  $("#btnSave").onclick=save;
+  const del=$("#btnDel"); if(del) del.onclick=()=>{$("#delGrp").innerHTML=`<span class="confirm">Excluir este livro do acervo? <button class="btn danger" type="button" id="btnDelYes">Sim, excluir</button><button class="btn ghost" type="button" id="btnDelNo">Não</button></span>`;$("#btnDelYes").onclick=remove;$("#btnDelNo").onclick=drawDrawer};
+  bindBody();
+}
+function bindBody(){
+  document.querySelectorAll("[data-star]").forEach(s=>s.onclick=()=>{const v=+s.dataset.star;cur.avaliacao=(+cur.avaliacao===v?0:v);document.querySelectorAll("[data-star]").forEach(x=>x.classList.toggle("on",+x.dataset.star<=cur.avaliacao))});
+  const r=$("#btnReturn"); if(r) r.onclick=()=>{readFields();cur.historico_emprestimos=[...(cur.historico_emprestimos||[]),{para:cur.emprestado_para,de:cur.emprestado_em||"",ate:new Date().toISOString().slice(0,10)}];cur.emprestado_para="";cur.emprestado_em="";cur.devolucao_prevista="";$("#dBody").innerHTML=body();bindBody();toast("Devolução registrada. Salve a ficha para gravar.")};
+  const sg=$("#btnSuggest"); if(sg) sg.onclick=suggest;
+  const fs=$("#f_prateleira"), fp=$("#f_posicao");
+  if(fs&&fp){ const upd=()=>{cur._shift=false;renderPosInfo()}; fs.addEventListener("input",upd); fp.addEventListener("input",upd); fs.addEventListener("blur",()=>{fs.value=normShelf(fs.value);renderPosInfo()}); renderPosInfo(); }
+  const cat=$("#f_categoria"); if(cat) cat.onchange=()=>{readFields();$("#dBody").innerHTML=body();bindBody()};
+  const ci=$("#capaIn"); if(ci) ci.onchange=async()=>{const f=ci.files&&ci.files[0];if(!f)return;readFields();try{cur._capaBlob=await shrink(f);if(cur._capaPreview)URL.revokeObjectURL(cur._capaPreview);cur._capaPreview=URL.createObjectURL(cur._capaBlob);drawDrawer();toast("Foto pronta. Salve a ficha para gravar.")}catch(e){toast("Não foi possível ler esta imagem.")}};
+}
+function renderPosInfo(){
+  const box=$("#posInfo"); if(!box) return;
+  const sh=normShelf($("#f_prateleira").value), posRaw=$("#f_posicao").value, pos=+posRaw;
+  if(!sh){ box.innerHTML=`<span>Informe a prateleira (ex.: <b>1A</b>). A posição livre aparece aqui na hora.</span>${shelves().length?`<div class="row2">${shelves().map(x=>`<button type="button" class="gap" data-pickshelf="${esc(x)}">${esc(x)}</button>`).join("")}</div>`:""}`; bindPos(); return }
+  const inf=shelfInfo(sh,cur.id);
+  const prev=pos>0?inf.list.filter(b=>+b.posicao<pos).pop():null, next=pos>0?inf.list.find(b=>+b.posicao>pos):null, occ=pos>0?occupant(sh,pos,cur.id):null;
+  let h=`<span>Prateleira <b>${esc(sh)}</b>: ${inf.list.length} ${inf.list.length===1?"livro":"livros"} · próxima posição livre: <b>${inf.next}</b></span>
+    <div class="row2"><button type="button" class="gap" data-pickpos="${inf.next}">Usar ${inf.next}</button>${inf.gaps.slice(0,12).map(g=>`<button type="button" class="gap" data-pickpos="${g}">Vaga ${g}</button>`).join("")}${inf.gaps.length>12?`<small>+${inf.gaps.length-12} vagas</small>`:""}</div>`;
+  if(!posRaw) h+=`<span class="ok">Sem posição digitada: ao salvar, o livro vai para a posição ${inf.next}.</span>`;
+  else if(!(pos>0)) h+=`<span class="bad">Digite um número inteiro a partir de 1.</span>`;
+  else if(occ&&!cur._shift) h+=`<span class="bad">A posição ${pos} já é de “${esc(occ.titulo)}” (${esc(occ.codigo)}). Não é possível repetir.</span><div class="row2"><button type="button" class="btn" data-pickpos="${inf.next}">Usar a próxima livre (${inf.next})</button><button type="button" class="btn" id="btnShift">Colocar na ${pos} e empurrar os seguintes</button></div>`;
+  else if(occ&&cur._shift) h+=`<span class="ok">Ao salvar, o livro entra na posição ${pos} e os livros da ${pos} em diante avançam uma casa.</span>`;
+  else h+=`<span class="ok">Posição ${pos} livre.</span>`;
+  if(pos>0&&(prev||next)) h+=`<small style="color:var(--muted)">${prev?`Depois de: ${esc(prev.titulo)} (${prev.posicao})`:""}${prev&&next?" · ":""}${next?`Antes de: ${esc(next.titulo)} (${next.posicao})`:""}</small>`;
+  const orig=books.find(b=>b.id===cur.id);
+  if(orig&&hasPlace(orig)&&(normShelf(orig.prateleira)!==sh||+orig.posicao!==pos)){
+    const fe=cur._close!==undefined?cur._close:cfg.fechar_espaco!==false;
+    h+=`<label class="check" style="grid-column:auto;font-size:13px"><input type="checkbox" id="f_close" ${fe?"checked":""}> Fechar o espaço que ficará na prateleira ${esc(normShelf(orig.prateleira))}, posição ${esc(orig.posicao)} (os livros seguintes recuam uma posição)</label>`;
+  }
+  box.innerHTML=h; bindPos();
+  const fc=$("#f_close"); if(fc) fc.onchange=()=>{cur._close=fc.checked};
+}
+function bindPos(){
+  document.querySelectorAll("[data-pickpos]").forEach(b=>b.onclick=()=>{$("#f_posicao").value=b.dataset.pickpos;cur._shift=false;renderPosInfo()});
+  document.querySelectorAll("[data-pickshelf]").forEach(b=>b.onclick=()=>{$("#f_prateleira").value=b.dataset.pickshelf;renderPosInfo()});
+  const sb=$("#btnShift"); if(sb) sb.onclick=()=>{cur._shift=true;renderPosInfo()};
+}
+async function shrink(file,max=720){
+  let bmp; try{bmp=await createImageBitmap(file,{imageOrientation:"from-image"})}catch(e){bmp=await createImageBitmap(file)}
+  const k=Math.min(1,max/Math.max(bmp.width,bmp.height)); const cv=document.createElement("canvas"); cv.width=Math.round(bmp.width*k); cv.height=Math.round(bmp.height*k);
+  cv.getContext("2d").drawImage(bmp,0,0,cv.width,cv.height);
+  return await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("toBlob")),"image/jpeg",0.82));
+}
+async function save(){
+  readFields();
+  if(!(cur.titulo||"").trim()){toast("Informe ao menos o título.");tab="ficha";drawDrawer();return}
+  const {_new,id,_dup,_fromPhoto,_capaBlob,_capaPreview,_shift,_close,_naFila,...data}=cur;
+  if(data.status_leitura==="lido"){ data.fila=null; if(!data.fim_leitura) data.fim_leitura=new Date().toISOString().slice(0,10) }
+  else if(_naFila===true && !(+data.fila>0)) data.fila=filaMax()+1;
+  else if(_naFila===false) data.fila=null;
+  data.prateleira=normShelf(data.prateleira);
+  if(data.prateleira){
+    if(!(+data.posicao>0)) data.posicao=shelfInfo(data.prateleira,id).next;
+    else data.posicao=Math.floor(+data.posicao);
+    const occ=occupant(data.prateleira,data.posicao,id);
+    if(occ&&!_shift){ toast(`A posição ${data.posicao} da prateleira ${data.prateleira} já é de “${occ.titulo}”.`); tab="exemplar"; drawDrawer(); return }
+  } else data.posicao=null; const now=new Date().toISOString(); data.atualizado_em=now; if(_new) data.criado_em=now;
+  if(data.conferido) data.pendencia="";
+  if(_new && !data.numero && data.categoria){ const p=placement(cur); if(p.organized){data.numero=p.numero;data.prateleira=p.prateleira;data.estante=p.estante} }
+  const docId=id||(data.codigo||nextCode()).replace(/[^A-Za-z0-9_-]/g,"");
+  if(_new && books.some(b=>b.id===docId)){toast("Já existe um livro com este registro. Altere o registro na aba Exemplar.");return}
+  const btn=$("#btnSave"); btn.disabled=true; btn.textContent="Salvando…";
+  try{
+    if(_capaBlob && assets){ try{ const up=await assets.upload(_capaBlob,{type:"image/jpeg"}); data.capa_id=up.id }catch(e){ toast("A foto da capa não foi gravada; o restante da ficha será salvo.") } }
+    let plan=null;
+    if(id||data.prateleira){ plan=planMove(id||"__novo__",data.prateleira,data.posicao,{close:cur._close!==false&&cfg.fechar_espaco!==false,shift:true}); if(data.prateleira) data.posicao=plan.pos; }
+    if(plan&&plan.updates.length) await applyUpdates(plan.updates);
+    await db.collection("livros").doc(docId).set(data);
+    if(plan&&(plan.closed||plan.pushed)) setTimeout(()=>toast(`${plan.closed?`Espaço fechado na ${plan.oldSh}: ${plan.closed} livro(s) recuaram uma posição. `:""}${plan.pushed?`${plan.pushed} livro(s) avançaram uma posição.`:""}`),1200);
+    toast(_new?(data.numero?`Livro cadastrado como nº ${data.numero}.`:"Livro cadastrado."):(data.prateleira?`Ficha salva · prateleira ${data.prateleira}, posição ${data.posicao}.`:"Ficha salva.")); closeDrawer();
+  }catch(e){ btn.disabled=false; btn.textContent="Salvar ficha"; if(e&&e.code==="invalid_argument"){canWrite=false;toast("Você está em modo de leitura: não é possível salvar.")} else if(e&&e.code==="quota_exceeded") toast("O acervo atingiu o limite de armazenamento."); else toast("Não foi possível salvar agora. Tente de novo em instantes."); }
+}
+async function remove(){try{const plan=planMove(cur.id,"",null,{close:cfg.fechar_espaco!==false});if(plan.updates.length)await applyUpdates(plan.updates);await db.collection("livros").doc(cur.id).delete();toast(plan.closed?`Livro excluído. ${plan.closed} livro(s) recuaram uma posição.`:"Livro excluído.");closeDrawer()}catch(e){toast("Não foi possível excluir agora.")}}
+
+/* ---------- Claude: sugerir dados e ler foto ---------- */
+async function getSample(){ if(sampleFn===undefined){ try{ sampleFn=await window.claude?.use?.("sample") }catch(e){ sampleFn=null } } return sampleFn }
+const FIELDS_SPEC=()=>`titulo, subtitulo, autores (array de nomes completos), organizador, tradutor, prefacio, titulo_original, idioma (do exemplar), idioma_original, editora, ano (número), edicao, isbn (ISBN-13 só com dígitos; converta ISBN-10 para ISBN-13; "" se não tiver certeza), paginas (número ou null), cdu, categoria (exatamente uma de: ${cats().join(", ")}), assuntos (array de 2 a 4), serie, volume, sinopse (2 a 3 frases em português do Brasil, sem travessão), cor_lombada (cor predominante da capa em hex #rrggbb), incerteza (texto curto: o que não foi possível confirmar)`;
+function applySuggestion(r,overwrite){
+  if(!r||typeof r!=="object") return;
+  const set=(k,v)=>{ if(v==null||v==="") return; if(overwrite||!cur[k]||(Array.isArray(cur[k])&&!cur[k].length)) cur[k]=v };
+  ["titulo","subtitulo","organizador","tradutor","prefacio","titulo_original","idioma","idioma_original","editora","edicao","isbn","cdu","serie","volume","sinopse"].forEach(k=>set(k,r[k]?String(r[k]):""));
+  ["ano","paginas"].forEach(k=>set(k,r[k]?(Number(r[k])||null):null));
+  ["autores","assuntos"].forEach(k=>{if(Array.isArray(r[k])&&r[k].length) set(k,r[k].map(String))});
+  if(r.categoria&&cats().includes(r.categoria)) set("categoria",r.categoria);
+  if(/^#[0-9a-f]{6}$/i.test(r.cor_lombada||"")) cur.cor_lombada=r.cor_lombada;
+  cur.conferido=false; cur.pendencia=(r.incerteza?String(r.incerteza)+" ":"")+"Conferir com o livro em mãos.";
+  const t=norm(cur.titulo); cur._dup=books.find(b=>norm(b.titulo)===t)||null;
+}
+async function suggest(){
+  readFields();
+  if(!(cur.titulo||"").trim()){toast("Digite o título primeiro.");return}
+  const s=await getSample(); if(!s){toast("A sugestão automática não está disponível nesta visualização.");return}
+  const b=$("#btnSuggest"); b.disabled=true; b.textContent="Buscando…";
+  const prompt=`Você é bibliotecário. Para o livro "${cur.titulo}"${(cur.autores||[]).length?` de ${cur.autores.join(", ")}`:""}${cur.editora?`, editora ${cur.editora}`:""}, devolva SOMENTE um objeto JSON com os dados da edição brasileira mais comum, com as chaves: ${FIELDS_SPEC()}. Nunca invente ISBN ou páginas.`;
+  try{ applySuggestion(await s.json(prompt,{modelTier:"default"}),false); drawDrawer(); toast("Dados sugeridos. Confira antes de salvar."); }
+  catch(e){ b.disabled=false; b.textContent="Sugerir dados"; toast(e&&e.code==="not_granted"?"Permissão para sugerir dados não concedida.":"Não foi possível sugerir agora."); }
+}
+let photoCtl=null;
+const PH_ERR={not_granted:"A permissão para o Claude ler a foto foi negada nesta visualização. Recarregue a página e toque em Permitir quando o claude.ai perguntar.",sampling_disabled:"O uso do Claude por esta página não está liberado na sua conta.",images_unavailable:"Esta visualização não permite enviar fotos ao Claude. Abra o sistema pelo navegador em claude.ai.",image_rejected:"A imagem não foi aceita. Tire a foto de novo em JPG.",rate_limited:"Muitas leituras seguidas ou limite de uso atingido. Aguarde alguns minutos.",session_expired:"Sua sessão no claude.ai expirou. Entre novamente.",invalid_json:"O Claude respondeu fora do formato esperado. Tente de novo.",refused:"O Claude não conseguiu ler esta imagem.",upstream_error:"Falha temporária de conexão com o Claude. Tente de novo."};
+function photoFail(msg,code,blob){
+  $("#busyRoot").innerHTML=`<div class="busy"><div class="box"><h3>Não consegui ler a foto</h3><p class="note">${esc(msg)}${code?` <small>(código: ${esc(code)})</small>`:""}</p><div class="row2" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" id="phManual">Cadastrar com esta capa e digitar o título</button><button class="btn ghost" type="button" id="phClose">Fechar</button></div></div></div>`;
+  $("#phClose").onclick=()=>$("#busyRoot").innerHTML="";
+  $("#phManual").onclick=()=>{ $("#busyRoot").innerHTML=""; newBook(); if(blob&&assets){cur._capaBlob=blob;cur._capaPreview=URL.createObjectURL(blob)} drawDrawer(); };
+}
+async function fromPhotos(files){
+  if(!db){toast("O acervo ainda está conectando.");return}
+  const picked=[...files].slice(0,3);
+  $("#busyRoot").innerHTML=`<div class="busy"><div class="box"><h3>Preparando a foto<span class="dots"></span></h3></div></div>`;
+  // Converte para JPEG (fotos de iPhone em HEIC não são aceitas) e reduz o tamanho
+  const imgs=[]; for(const f of picked){ try{ imgs.push(await shrink(f,1600)) }catch(e){} }
+  const cover=imgs[0]?await shrink(imgs[0],720).catch(()=>imgs[0]):null;
+  if(!imgs.length){ photoFail("Não foi possível abrir este arquivo de imagem. Se for HEIC (padrão do iPhone), envie em JPG ou tire um print da foto.","formato",null); return }
+  const s=await getSample();
+  if(!s){ photoFail("A leitura automática por IA não está ativada nesta instalação. Você pode cadastrar com esta capa e digitar o título.","indisponivel",cover); return }
+  try{ const lim=await s.limits(); if(lim&&!lim.images){ photoFail(PH_ERR.images_unavailable,"images_unavailable",cover); return } }catch(e){}
+  const urls=imgs.map(f=>URL.createObjectURL(f));
+  photoCtl=new AbortController();
+  $("#busyRoot").innerHTML=`<div class="busy"><div class="box"><h3>Lendo a foto<span class="dots"></span></h3><div class="thumbs">${urls.map(u=>`<img src="${u}" alt="">`).join("")}</div><p class="note">O Claude está identificando título, autor, editora e a seção do livro. Na primeira vez o claude.ai pede sua permissão: toque em Permitir. A leitura leva de 10 a 60 segundos.</p><div><button class="btn ghost" type="button" id="btnStopPh">Cancelar</button></div></div></div>`;
+  $("#btnStopPh").onclick=()=>photoCtl.abort();
+  const prompt=`As imagens mostram um livro da biblioteca pessoal de um corretor de imóveis brasileiro: a capa e, às vezes, o verso, a lombada ou a ficha catalográfica (CIP). Leia com atenção TODO o texto visível. Use o que está nas imagens como fonte principal (sobretudo a ficha catalográfica, se houver: editora, cidade, ano, páginas, ISBN, CDU). Complete o que faltar com seu conhecimento sobre a edição correspondente, mas nunca invente ISBN ou número de páginas que não estejam visíveis ou que você não saiba com segurança. Se o livro estiver em outro idioma, registre o idioma do exemplar. Devolva SOMENTE um objeto JSON com as chaves: ${FIELDS_SPEC()}.`;
+  try{
+    const r=await s.json(prompt,{images:imgs,modelTier:"default",signal:photoCtl.signal,cache:false});
+    $("#busyRoot").innerHTML="";
+    newBook({_fromPhoto:true});
+    applySuggestion(r,true);
+    if(cover&&assets){cur._capaBlob=cover;cur._capaPreview=URL.createObjectURL(cover)}
+    drawDrawer(); toast(cur._dup?"Atenção: este título parece já estar cadastrado.":"Livro identificado. Confira e cadastre.");
+  }catch(e){
+    if(e&&e.code==="cancelled"){ $("#busyRoot").innerHTML=""; return }
+    const code=(e&&e.code)||"erro"; photoFail(PH_ERR[code]||("Não foi possível ler a foto. "+((e&&e.message)||"")),code,cover);
+  }finally{ urls.forEach(u=>URL.revokeObjectURL(u)); }
+}
+
+/* ---------- Organização por assunto ---------- */
+let orgDraft=null;
+function openOrg(){ orgDraft={ordem:cfg.ordem.slice(),por_prateleira:cfg.por_prateleira,estante:cfg.estante}; drawOrg() }
+function drawOrg(){
+  const saved=cfg; cfg={...cfg,...orgDraft}; const plan=buildPlan(); cfg=saved;
+  const present=new Set(books.map(b=>b.categoria));
+  const moves=plan.filter(p=>p.b.numero!==p.numero).length;
+  const shelves={}; plan.forEach(p=>{(shelves[p.prateleira]=shelves[p.prateleira]||[]).push(p)});
+  const ordemHtml=orgDraft.ordem.map((c,i)=>`<div class="it"><span class="ix">${i+1}</span><span>${esc(c)} <small style="color:var(--muted)">${present.has(c)?"· "+books.filter(b=>b.categoria===c).length+" livros":"· vazia"}</small></span><button class="mini" type="button" data-up="${i}" ${i===0?"disabled":""} aria-label="Subir">↑</button><button class="mini" type="button" data-dn="${i}" ${i===orgDraft.ordem.length-1?"disabled":""} aria-label="Descer">↓</button></div>`).join("");
+  const planHtml=Object.entries(shelves).map(([sh,ps])=>{let last=null;return `<div class="shelfplan"><h4><span>Prateleira ${sh}</span><span>nº ${ps[0].numero} a ${ps[ps.length-1].numero}</span></h4><ol>${ps.map(p=>{const sec=shelfSec(p.b)||"Sem seção";const head=sec!==last?`<li class="sec">${esc(sec)}</li>`:"";last=sec;return head+`<li><span class="n">${p.numero}</span><span>${esc(p.b.titulo)} <small style="color:var(--muted)">· ${esc(surname((p.b.autores||[])[0]||p.b.organizador)||"")}</small></span><span class="from">${p.b.numero?(p.b.numero===p.numero?"mantém":"era "+esc(p.b.numero)):"novo nº"}</span></li>`}).join("")}</ol></div>`}).join("");
+  $("#drawerRoot").innerHTML=`<div class="scrim" id="scrim"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="Organizar por assunto" style="width:min(760px,100%)">
+    <div class="d-head"><div class="d-title"><span class="eyebrow">Organização da estante</span><h2>Organizar por assunto</h2><p>O sistema ordena por seção, depois por sobrenome do autor (coleções ficam juntas, na ordem dos volumes) e numera tudo em sequência.</p></div><button class="x" type="button" id="btnClose" aria-label="Fechar">×</button></div>
+    <div class="d-body"><div class="grid">
+      <div class="fld s3"><label for="o_cap">Livros por prateleira</label><input id="o_cap" type="number" inputmode="numeric" min="5" value="${esc(orgDraft.por_prateleira)}"><span class="hint">Conte quantos livros cabem numa prateleira cheia.</span></div>
+      <div class="fld s3"><label for="o_est">Nome da estante</label><input id="o_est" type="text" value="${esc(orgDraft.estante)}"></div>
+      <div class="fld"><label>Ordem das seções na estante</label><div class="order">${ordemHtml}</div></div>
+      <div class="fld"><label>Plano resultante · ${plan.length} livros em ${Object.keys(shelves).length} prateleira(s) · ${moves} recebem número novo</label><div class="plan">${planHtml||'<p class="note">Sem livros cadastrados.</p>'}</div></div>
+    </div></div>
+    <div class="d-foot"><div class="grp" id="orgMsg"><span class="note">Atenção: aplicar substitui a prateleira e a posição de todos os livros pela sugestão do plano, inclusive as que você arrumou à mão.</span></div>
+      <div class="grp"><button class="btn ghost" type="button" id="btnCancel">Fechar</button><button class="btn primary" type="button" id="btnApply" ${canWrite&&plan.length?"":"disabled"}>Aplicar numeração</button></div></div>
+  </aside>`;
+  $("#scrim").onclick=closeDrawer; $("#btnClose").onclick=closeDrawer; $("#btnCancel").onclick=closeDrawer;
+  $("#o_cap").onchange=e=>{orgDraft.por_prateleira=Math.max(5,+e.target.value||50);drawOrg()};
+  $("#o_est").onchange=e=>{orgDraft.estante=e.target.value||"Estante principal"};
+  document.querySelectorAll("[data-up],[data-dn]").forEach(b=>b.onclick=()=>{const i=+(b.dataset.up??b.dataset.dn), j=b.dataset.up!=null?i-1:i+1; const o=orgDraft.ordem; [o[i],o[j]]=[o[j],o[i]]; drawOrg()});
+  $("#btnApply").onclick=()=>{$("#orgMsg").innerHTML=`<span class="confirm">Gravar ${plan.length} números? <button class="btn primary" type="button" id="btnApplyYes">Sim, aplicar</button><button class="btn ghost" type="button" id="btnApplyNo">Não</button></span>`;$("#btnApplyNo").onclick=drawOrg;$("#btnApplyYes").onclick=applyOrg};
+}
+async function applyOrg(){
+  cfg={...cfg,...orgDraft}; const plan=buildPlan();
+  $("#orgMsg").innerHTML=`<div style="display:flex;flex-direction:column;gap:6px;min-width:220px"><span class="note" id="orgProg">Gravando 0 de ${plan.length}…</span><div class="progress"><span id="orgBar"></span></div></div>`;
+  document.querySelectorAll("#btnApply,#btnCancel").forEach(b=>b.disabled=true);
+  let done=0, fail=0;
+  for(const p of plan){
+    const b=p.b, ch=b.numero!==p.numero||String(b.prateleira)!==p.prateleira||+b.posicao!==p.posicao||b.estante!==cfg.estante;
+    if(ch){ try{ await db.collection("livros").doc(b.id).update({numero:p.numero,prateleira:p.prateleira,posicao:p.posicao,estante:cfg.estante}) }catch(e){ fail++ } }
+    done++; const pr=$("#orgProg"),bar=$("#orgBar"); if(pr)pr.textContent=`Gravando ${done} de ${plan.length}…`; if(bar)bar.style.width=(done/plan.length*100)+"%";
+  }
+  try{ cfg.organizado_em=new Date().toISOString(); await db.doc("config/geral").set(cfgDoc()) }catch(e){ fail++ }
+  closeDrawer(); toast(fail?`Organização gravada com ${fail} falha(s). Abra de novo e aplique para completar.`:"Estante organizada e numerada.");
+}
+
+/* ---------- Arrumar prateleira ---------- */
+let arrOpen=false, arrShelf="", arrQ="", arrBusy=false, arrLast=null;
+function openArr(){ arrOpen=true; arrShelf=arrShelf||shelves()[0]||"1A"; arrQ=""; drawArr(true) }
+function drawArr(focus){
+  const inf=shelfInfo(arrShelf), dset=dupIds(), all=onShelf(arrShelf);
+  const q=norm(arrQ).trim();
+  const res=q.length<2?[]:books.filter(b=>norm([b.titulo,b.subtitulo,authors(b),b.codigo,b.isbn].join(" ")).includes(q)).sort((a,b)=>(hasPlace(a)-hasPlace(b))||String(a.titulo).localeCompare(b.titulo)).slice(0,8);
+  const semLugar=books.filter(b=>!hasPlace(b)).length;
+  // lista com vagas
+  const rows=[]; let p=1; const byPos={}; all.forEach(b=>{(byPos[b.posicao]=byPos[b.posicao]||[]).push(b)});
+  for(let i=1;i<=inf.max;i++){ const bs=byPos[i]; if(!bs){rows.push(`<div class="sitem vaga"><span class="p">${i}</span><span>vaga livre</span><span class="acts"><button class="mini" type="button" data-setpos="${i}">Usar</button></span></div>`);continue}
+    bs.forEach(b=>rows.push(`<div class="sitem ${bs.length>1?"dup":""} ${arrLast===b.id?"flash":""}"><span class="p">${i}</span><span><b>${esc(b.titulo)}</b><br><small style="color:var(--muted)">${esc(authors(b))} · ${esc(b.codigo)}${bs.length>1?" · <b style='color:var(--bad)'>posição repetida</b>":""}</small></span><span class="acts"><button class="mini" type="button" data-up="${esc(b.id)}" ${i===1?"disabled":""} aria-label="Subir">↑</button><button class="mini" type="button" data-dn="${esc(b.id)}" aria-label="Descer">↓</button><button class="mini" type="button" data-out="${esc(b.id)}">Tirar</button></span></div>`)) }
+  $("#drawerRoot").innerHTML=`<div class="scrim" id="scrim"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="Arrumar prateleira" style="width:min(720px,100%)">
+    <div class="d-head"><div class="d-title"><span class="eyebrow">Arrumação da estante</span><h2>Prateleira ${esc(arrShelf)}</h2><p>Pegue o livro, digite parte do título e toque nele. Ele entra na próxima posição livre, sem repetir.</p></div><button class="x" type="button" id="btnClose" aria-label="Fechar">×</button></div>
+    <div class="d-body"><div style="display:flex;flex-direction:column;gap:14px">
+      <div class="arr-top">
+        <div class="fld"><label for="a_shelf">Prateleira</label><input id="a_shelf" list="dlShelves2" value="${esc(arrShelf)}" autocomplete="off"><datalist id="dlShelves2">${shelves().map(x=>`<option value="${esc(x)}">`).join("")}</datalist><span class="hint">Use um padrão fixo, por exemplo 1A, 1B, 2A.</span></div>
+        <label class="check" style="grid-column:1/-1"><input type="checkbox" id="a_close" ${cfg.fechar_espaco!==false?"checked":""}> Ao tirar ou mudar um livro de lugar, fechar o espaço (os seguintes recuam uma posição)</label>
+        <div class="fld"><label for="a_pos">Colocar na posição</label><input id="a_pos" type="number" min="1" inputmode="numeric" placeholder="Próxima livre: ${inf.next}"><span class="hint">Deixe vazio para usar a próxima livre. Se a posição estiver ocupada, os seguintes avançam uma casa.</span></div>
+      </div>
+      <div class="arr-search"><label for="a_q" style="font-weight:600">Qual livro você está colocando?</label><input id="a_q" type="search" autocomplete="off" placeholder="Digite parte do título, autor ou MR…" value="${esc(arrQ)}">
+        <div class="res" id="a_res">${res.map(b=>`<button type="button" data-place="${esc(b.id)}"><span><b>${esc(b.titulo)}</b><br><small>${esc(authors(b))} · ${esc(b.codigo)}</small></span><span class="where">${hasPlace(b)?`está em ${esc(normShelf(b.prateleira))}·${esc(b.posicao)}`:"sem lugar"}</span></button>`).join("")||(q.length>=2?'<small style="color:var(--muted)">Nenhum livro encontrado. Cadastre-o primeiro.</small>':"")}</div>
+      </div>
+      <div class="note">${inf.list.length} livros nesta prateleira · próxima livre: <b>${inf.next}</b>${inf.gaps.length?` · ${inf.gaps.length} vaga(s)`:""}${dset.size?` · <b style="color:var(--bad)">${dset.size} livros com posição repetida no acervo</b>`:""} · ${semLugar} livros ainda sem lugar</div>
+      <div class="slist">${rows.join("")||'<div class="sitem vaga"><span class="p">1</span><span>Prateleira vazia. Busque o primeiro livro acima.</span><span></span></div>'}</div>
+    </div></div>
+    <div class="d-foot"><div class="grp" id="arrMsg">${inf.gaps.length||[...dset].some(id=>all.find(b=>b.id===id))?`<button class="btn" type="button" id="btnRenum">Renumerar 1 a ${inf.list.length} sem vagas</button>`:'<span class="note">Sequência sem vagas nem repetições.</span>'}</div><div class="grp"><button class="btn primary" type="button" id="btnCancel">Concluir</button></div></div>
+  </aside>`;
+  $("#scrim").onclick=closeDrawer; $("#btnClose").onclick=closeDrawer; $("#btnCancel").onclick=closeDrawer;
+  const ac=$("#a_close"); if(ac) ac.onchange=async()=>{cfg.fechar_espaco=ac.checked; try{await db.doc("config/geral").set(cfgDoc())}catch(e){} toast(ac.checked?"Espaços serão fechados automaticamente.":"Vagas serão mantidas ao tirar um livro.")};
+  const sIn=$("#a_shelf"); sIn.onchange=()=>{arrShelf=normShelf(sIn.value)||arrShelf;drawArr(true)};
+  const qIn=$("#a_q"); qIn.oninput=()=>{arrQ=qIn.value;const pos=qIn.selectionStart;drawArr(false);const n=$("#a_q");n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}};
+  qIn.onkeydown=e=>{if(e.key==="Enter"){const f=document.querySelector("[data-place]");if(f){e.preventDefault();f.click()}}};
+  if(focus) setTimeout(()=>{const n=$("#a_q");n&&n.focus()},50);
+  document.querySelectorAll("[data-place]").forEach(b=>b.onclick=()=>placeBook(b.dataset.place));
+  document.querySelectorAll("[data-setpos]").forEach(b=>b.onclick=()=>{$("#a_pos").value=b.dataset.setpos;$("#a_q").focus()});
+  document.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>moveBook(b.dataset.up,-1));
+  document.querySelectorAll("[data-dn]").forEach(b=>b.onclick=()=>moveBook(b.dataset.dn,1));
+  document.querySelectorAll("[data-out]").forEach(b=>b.onclick=()=>takeOut(b.dataset.out));
+  const rn=$("#btnRenum"); if(rn) rn.onclick=()=>{$("#arrMsg").innerHTML=`<span class="confirm">Renumerar a prateleira ${esc(arrShelf)} de 1 a ${inf.list.length}, na ordem atual? <button class="btn primary" type="button" id="rnYes">Sim</button><button class="btn ghost" type="button" id="rnNo">Não</button></span>`;$("#rnNo").onclick=()=>drawArr();$("#rnYes").onclick=renumShelf};
+}
+async function guard(fn){ if(arrBusy) return; if(!canWrite){toast("Você está em modo de leitura.");return} arrBusy=true; try{ await fn() }catch(e){ toast("Não foi possível gravar agora. Tente de novo.") } finally{ arrBusy=false } }
+function placeBook(id){ guard(async()=>{
+  const b=books.find(x=>x.id===id); if(!b) return;
+  const posIn=+($("#a_pos")||{}).value||0;
+  const plan=planMove(id,arrShelf,posIn>0?Math.floor(posIn):null,{close:cfg.fechar_espaco!==false,shift:true}); const target=plan.pos;
+  if(plan.updates.length) await applyUpdates(plan.updates);
+  await db.collection("livros").doc(id).update({prateleira:arrShelf,posicao:target,estante:b.estante||cfg.estante,atualizado_em:new Date().toISOString()});
+  arrQ=""; arrLast=id; toast(`“${b.titulo}” na prateleira ${arrShelf}, posição ${target}.`);
+  const pi=$("#a_pos"); if(pi) pi.value=""; drawArr(true);
+})}
+function moveBook(id,dir){ guard(async()=>{
+  const b=books.find(x=>x.id===id); const p=+b.posicao, t=p+dir; if(t<1) return;
+  const other=occupant(arrShelf,t,id); const now=new Date().toISOString();
+  if(other) await db.collection("livros").doc(other.id).update({posicao:p,atualizado_em:now});
+  await db.collection("livros").doc(id).update({posicao:t,atualizado_em:now}); arrLast=id;
+})}
+function takeOut(id){ guard(async()=>{ const b=books.find(x=>x.id===id); const plan=planMove(id,"",null,{close:cfg.fechar_espaco!==false}); if(plan.updates.length) await applyUpdates(plan.updates); await db.collection("livros").doc(id).update({prateleira:"",posicao:null,atualizado_em:new Date().toISOString()}); toast(`“${b.titulo}” saiu da prateleira ${arrShelf}.${plan.closed?` ${plan.closed} livro(s) recuaram uma posição.`:""}`) })}
+function renumShelf(){ guard(async()=>{
+  const list=onShelf(arrShelf).sort((a,b)=>a.posicao-b.posicao||String(a.atualizado_em||"").localeCompare(String(b.atualizado_em||"")));
+  let i=0; for(const b of list){ i++; if(+b.posicao!==i) await db.collection("livros").doc(b.id).update({posicao:i,atualizado_em:new Date().toISOString()}) }
+  toast(`Prateleira ${arrShelf} renumerada de 1 a ${i}.`); drawArr();
+})}
+
+/* ---------- Relatórios ---------- */
+let repOpen=false, rep=null, repOpenG=new Set();
+const REP_DEF={grupo:"categoria",cat:"",autor:"",assunto:"",editora:"",status:"",prat:"",anoDe:"",anoAte:"",q:"",flag:"",ordem:"qtd"};
+const GROUPS={categoria:"Seção (assunto principal)",autor:"Autor",assunto:"Palavra-chave / assunto",editora:"Editora",prateleira:"Prateleira",status:"Situação de leitura",decada:"Década de publicação",idioma:"Idioma",formato:"Formato",serie:"Série / coleção",avaliacao:"Avaliação",nenhum:"Lista completa (sem agrupar)"};
+const PRESETS=[
+  ["Visão geral por seção",{grupo:"categoria"}],
+  ["Inventário por prateleira",{grupo:"prateleira",ordem:"nome"}],
+  ["Autores com mais livros",{grupo:"autor"}],
+  ["Editoras",{grupo:"editora"}],
+  ["Assuntos",{grupo:"assunto"}],
+  ["Minhas leituras",{grupo:"status"}],
+  ["Por década",{grupo:"decada",ordem:"nome"}],
+  ["A conferir",{grupo:"categoria",flag:"pend"}],
+  ["Emprestados",{grupo:"nenhum",flag:"emp"}],
+  ["Sem lugar na estante",{grupo:"categoria",flag:"semlugar"}],
+  ["Títulos repetidos",{grupo:"nenhum",flag:"repetidos"}]];
+function openRep(preset){ repOpen=true; rep={...REP_DEF,...(preset||{})}; repOpenG=new Set(); drawRep() }
+function keysOf(b,g){
+  const nz=v=>v==null||v===""?[]:[String(v)];
+  switch(g){
+    case "categoria": return [b.categoria||"Sem seção"];
+    case "autor": return (b.autores&&b.autores.length?b.autores:(b.organizador?[b.organizador+" (org.)"]:["Autor não informado"]));
+    case "assunto": return (b.assuntos&&b.assuntos.length?b.assuntos.map(a=>a.trim().toLowerCase()).filter(Boolean):["sem assunto"]);
+    case "editora": return [String(b.editora||"Não informada").replace(/\s*\(.*\)\s*$/,"")];
+    case "prateleira": return [hasPlace(b)?"Prateleira "+normShelf(b.prateleira):"Sem lugar na estante"];
+    case "status": return [STATUS[b.status_leitura||"nao"]];
+    case "decada": return [b.ano?Math.floor(b.ano/10)*10+"s":"Ano não informado"];
+    case "idioma": return [b.idioma||"Português"];
+    case "formato": return [b.formato||"Não informado"];
+    case "serie": return [b.serie?seriesName(b)||b.serie:"Sem série"];
+    case "avaliacao": return [+b.avaliacao?"★".repeat(+b.avaliacao):"Sem avaliação"];
+    default: return ["Todos os livros"];
+  }
+}
+function repFiltered(){
+  const r=rep, q=norm(r.q).trim(); let arr=books.slice();
+  if(r.cat) arr=arr.filter(b=>b.categoria===r.cat);
+  if(r.autor) arr=arr.filter(b=>norm(authors(b)).includes(norm(r.autor)));
+  if(r.assunto) arr=arr.filter(b=>(b.assuntos||[]).some(a=>norm(a).includes(norm(r.assunto))));
+  if(r.editora) arr=arr.filter(b=>norm(b.editora).includes(norm(r.editora)));
+  if(r.status) arr=arr.filter(b=>(b.status_leitura||"nao")===r.status);
+  if(r.prat) arr=arr.filter(b=>r.prat==="__sem"?!hasPlace(b):normShelf(b.prateleira)===r.prat);
+  if(r.anoDe) arr=arr.filter(b=>+b.ano>=+r.anoDe); if(r.anoAte) arr=arr.filter(b=>b.ano&&+b.ano<=+r.anoAte);
+  if(q) arr=arr.filter(b=>norm([b.titulo,b.subtitulo,authors(b),b.editora,(b.assuntos||[]).join(" "),b.sinopse,b.codigo].join(" ")).includes(q));
+  if(r.flag==="pend") arr=arr.filter(pend);
+  if(r.flag==="emp") arr=arr.filter(emprest);
+  if(r.flag==="semlugar") arr=arr.filter(b=>!hasPlace(b));
+  if(r.flag==="repetidos"){ const c={}; books.forEach(b=>{const k=norm(b.titulo);c[k]=(c[k]||0)+1}); arr=arr.filter(b=>c[norm(b.titulo)]>1) }
+  return arr;
+}
+function repGroups(arr){
+  const m=new Map(); arr.forEach(b=>keysOf(b,rep.grupo).forEach(k=>{if(!m.has(k))m.set(k,[]);m.get(k).push(b)}));
+  let g=[...m.entries()].map(([k,list])=>({k,list:rep.grupo==="prateleira"?shelfOrder(list):list.slice().sort((a,b)=>String(a.titulo).localeCompare(b.titulo,"pt-BR"))}));
+  if(rep.ordem==="nome") g.sort((a,b)=>rep.grupo==="prateleira"?cmpShelf(a.k.replace("Prateleira ",""),b.k.replace("Prateleira ","")):a.k.localeCompare(b.k,"pt-BR"));
+  else g.sort((a,b)=>b.list.length-a.list.length||a.k.localeCompare(b.k,"pt-BR"));
+  return g;
+}
+function drawRep(){
+  const arr=repFiltered(), groups=repGroups(arr), max=Math.max(1,...groups.map(g=>g.list.length));
+  const autores=new Set(arr.flatMap(b=>b.autores||[])).size, eds=new Set(arr.map(b=>String(b.editora||"").replace(/\s*\(.*\)\s*$/,"")).filter(Boolean)).size;
+  const pg=arr.reduce((s,b)=>s+(+b.paginas||0),0), lidos=arr.filter(b=>b.status_leitura==="lido").length;
+  const opt=(list,v)=>list.map(x=>`<option value="${esc(x)}" ${v===x?"selected":""}>${esc(x)}</option>`).join("");
+  const allAut=[...new Set(books.flatMap(b=>b.autores||[]))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const allAss=[...new Set(books.flatMap(b=>(b.assuntos||[]).map(a=>a.trim().toLowerCase())))].filter(Boolean).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const allEd=[...new Set(books.map(b=>String(b.editora||"").replace(/\s*\(.*\)\s*$/,"")).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const presentCats=cats().filter(c=>books.some(b=>b.categoria===c));
+  const flat=rep.grupo==="nenhum";
+  const line=b=>`<li><button type="button" data-open="${esc(b.id)}">${esc(b.titulo)}</button> <small>· ${esc(authors(b))}${b.ano?" · "+b.ano:""} · ${hasPlace(b)?"prat. "+esc(normShelf(b.prateleira))+", pos. "+esc(b.posicao):"sem lugar"}${b.status_leitura&&b.status_leitura!=="nao"?" · "+STATUS[b.status_leitura]:""}${emprest(b)?" · com "+esc(b.emprestado_para):""}</small></li>`;
+  const body=flat?`<div class="rgroups"><div class="rg"><ol style="padding-top:10px">${arr.slice().sort((a,b)=>String(a.titulo).localeCompare(b.titulo,"pt-BR")).map(line).join("")||"<li>Nenhum livro com esses filtros.</li>"}</ol></div></div>`
+   :`<div class="rgroups">${groups.map(g=>{const op=repOpenG.has(g.k);return `<div class="rg"><button type="button" data-g="${esc(g.k)}" aria-expanded="${op}"><span class="nm">${op?"▾":"▸"} ${esc(g.k)}</span><span class="track"><span class="fill" style="display:block;width:${(g.list.length/max*100).toFixed(1)}%"></span></span><span class="q">${g.list.length}</span><span class="pc">${arr.length?Math.round(g.list.length/arr.length*100):0}%</span></button>${op?`<ol>${g.list.map(line).join("")}</ol>`:""}</div>`}).join("")||'<div class="empty"><b>Nada encontrado</b>Ajuste os filtros.</div>'}</div>`;
+  $("#drawerRoot").innerHTML=`<div class="scrim" id="scrim"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="Relatórios" style="width:min(1040px,100%)">
+    <div class="d-head"><div class="d-title"><span class="eyebrow">Relatórios do acervo</span><h2>O que tenho na biblioteca</h2><p>Escolha um relatório pronto ou monte o seu com os filtros. Toque num grupo para ver os títulos.</p></div><button class="x" type="button" id="btnClose" aria-label="Fechar">×</button></div>
+    <div class="d-body"><div style="display:flex;flex-direction:column;gap:14px">
+      <div class="callout info" style="flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between"><span><b>Relatório gerencial completo</b><br><span class="hint">Visão geral, seções, autores, editoras, assuntos, leitura, ocupação da estante, empréstimos, pendências e considerações finais. Pronto para imprimir.</span></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="gWord">Word</button><button class="btn primary" type="button" id="gPdf">PDF</button></span></div>
+      <div class="presets">${PRESETS.map(([l],i)=>`<button type="button" class="chip" data-preset="${i}">${l}</button>`).join("")}</div>
+      <div class="rep-ctrl">
+        <div class="fld"><label for="r_grupo">Agrupar por</label><select id="r_grupo">${Object.entries(GROUPS).map(([k,l])=>`<option value="${k}" ${rep.grupo===k?"selected":""}>${l}</option>`).join("")}</select></div>
+        <div class="fld"><label for="r_ordem">Ordenar grupos</label><select id="r_ordem"><option value="qtd" ${rep.ordem==="qtd"?"selected":""}>Mais livros primeiro</option><option value="nome" ${rep.ordem==="nome"?"selected":""}>Ordem alfabética</option></select></div>
+        <div class="fld"><label for="r_cat">Seção</label><select id="r_cat"><option value="">Todas</option>${opt(presentCats,rep.cat)}</select></div>
+        <div class="fld"><label for="r_status">Situação de leitura</label><select id="r_status"><option value="">Todas</option>${Object.entries(STATUS).map(([k,l])=>`<option value="${k}" ${rep.status===k?"selected":""}>${l}</option>`).join("")}</select></div>
+        <div class="fld"><label for="r_autor">Autor</label><input id="r_autor" list="dlA" value="${esc(rep.autor)}" placeholder="Todos"><datalist id="dlA">${allAut.map(a=>`<option value="${esc(a)}">`).join("")}</datalist></div>
+        <div class="fld"><label for="r_assunto">Assunto</label><input id="r_assunto" list="dlS" value="${esc(rep.assunto)}" placeholder="Todos"><datalist id="dlS">${allAss.map(a=>`<option value="${esc(a)}">`).join("")}</datalist></div>
+        <div class="fld"><label for="r_editora">Editora</label><input id="r_editora" list="dlE" value="${esc(rep.editora)}" placeholder="Todas"><datalist id="dlE">${allEd.map(a=>`<option value="${esc(a)}">`).join("")}</datalist></div>
+        <div class="fld"><label for="r_prat">Prateleira</label><select id="r_prat"><option value="">Todas</option>${opt(shelves(),rep.prat)}<option value="__sem" ${rep.prat==="__sem"?"selected":""}>Sem lugar</option></select></div>
+        <div class="fld"><label for="r_anoDe">Publicado de</label><input id="r_anoDe" type="number" inputmode="numeric" value="${esc(rep.anoDe)}" placeholder="Ano"></div>
+        <div class="fld"><label for="r_anoAte">até</label><input id="r_anoAte" type="number" inputmode="numeric" value="${esc(rep.anoAte)}" placeholder="Ano"></div>
+        <div class="fld"><label for="r_flag">Mostrar só</label><select id="r_flag"><option value="">Todos os livros</option><option value="pend" ${rep.flag==="pend"?"selected":""}>A conferir</option><option value="emp" ${rep.flag==="emp"?"selected":""}>Emprestados</option><option value="semlugar" ${rep.flag==="semlugar"?"selected":""}>Sem lugar na estante</option><option value="repetidos" ${rep.flag==="repetidos"?"selected":""}>Títulos repetidos</option></select></div>
+        <div class="fld"><label for="r_q">Palavra no título ou sinopse</label><input id="r_q" type="search" value="${esc(rep.q)}" placeholder="Ex.: liderança"></div>
+      </div>
+      <div class="kpis"><div><b>${arr.length}</b><span>Livros</span></div><div><b>${autores}</b><span>Autores</span></div><div><b>${eds}</b><span>Editoras</span></div><div><b>${pg.toLocaleString("pt-BR")}</b><span>Páginas</span></div><div><b>${arr.length?Math.round(lidos/arr.length*100):0}%</b><span>Lidos</span></div><div><b>${flat?arr.length:groups.length}</b><span>${flat?"Itens":"Grupos"}</span></div></div>
+      ${body}
+    </div></div>
+    <div class="d-foot"><div class="grp"><button class="btn ghost" type="button" id="rClear">Limpar filtros</button>${flat?"":`<button class="btn ghost" type="button" id="rExpand">${repOpenG.size?"Recolher tudo":"Abrir todos os grupos"}</button>`}</div>
+      <div class="grp"><button class="btn" type="button" id="rCopy">Copiar texto</button><button class="btn" type="button" id="rWord">Este relatório em Word</button><button class="btn primary" type="button" id="rPdf">Este relatório em PDF</button></div></div>
+  </aside>`;
+  $("#scrim").onclick=closeDrawer; $("#btnClose").onclick=closeDrawer;
+  const bindSel=(id,k)=>{const el=$(id); el.onchange=()=>{rep[k]=el.value;drawRep()}};
+  [["#r_grupo","grupo"],["#r_ordem","ordem"],["#r_cat","cat"],["#r_status","status"],["#r_prat","prat"],["#r_flag","flag"],["#r_autor","autor"],["#r_assunto","assunto"],["#r_editora","editora"],["#r_anoDe","anoDe"],["#r_anoAte","anoAte"]].forEach(([i,k])=>bindSel(i,k));
+  const rq=$("#r_q"); rq.onchange=()=>{rep.q=rq.value;drawRep()};
+  document.querySelectorAll("[data-preset]").forEach(b=>b.onclick=()=>{rep={...REP_DEF,...PRESETS[+b.dataset.preset][1]};repOpenG=new Set();drawRep()});
+  document.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{const k=b.dataset.g;repOpenG.has(k)?repOpenG.delete(k):repOpenG.add(k);drawRep()});
+  document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{repOpen=false;openBook(b.dataset.open)});
+  $("#rClear").onclick=()=>{rep={...REP_DEF,grupo:rep.grupo};drawRep()};
+  const ex=$("#rExpand"); if(ex) ex.onclick=()=>{repOpenG=repOpenG.size?new Set():new Set(groups.map(g=>g.k));drawRep()};
+  $("#rCopy").onclick=()=>copyReport(arr,groups);
+  $("#rPdf").onclick=()=>gerarDoc("pdf",selModel(arr,groups));
+  $("#rWord").onclick=()=>gerarDoc("docx",selModel(arr,groups));
+  $("#gPdf").onclick=()=>gerarDoc("pdf",buildGerencial(books));
+  $("#gWord").onclick=()=>gerarDoc("docx",buildGerencial(books));
+}
+function repTitle(){const p=[GROUPS[rep.grupo]];["cat","autor","assunto","editora"].forEach(k=>rep[k]&&p.push(rep[k]));rep.status&&p.push(STATUS[rep.status]);rep.prat&&p.push(rep.prat==="__sem"?"sem lugar":"prateleira "+rep.prat);return "Relatório da Biblioteca Mário Rubens · "+p.join(" · ")}
+async function copyReport(arr,groups){
+  const ln=b=>`  - ${b.titulo}${b.subtitulo?": "+b.subtitulo:""} · ${authors(b)}${b.ano?" ("+b.ano+")":""} · ${hasPlace(b)?"prat. "+normShelf(b.prateleira)+"/"+b.posicao:"sem lugar"}`;
+  const txt=[repTitle(),`${arr.length} livros · ${new Date().toLocaleDateString("pt-BR")}`,""].concat(rep.grupo==="nenhum"?arr.map(ln):groups.flatMap(g=>[`${g.k} (${g.list.length})`,...g.list.map(ln),""])).join("\n");
+  try{await navigator.clipboard.writeText(txt);toast("Relatório copiado. Cole no WhatsApp, e-mail ou Word.")}catch(e){toast("Não foi possível copiar nesta visualização.")}
+}
+async function csvReport(arr,groups){
+  const cell=v=>{v=Array.isArray(v)?v.join("; "):(v??"");v=String(v);return /[";\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v};
+  const head=["Grupo","Registro","Título","Subtítulo","Autores","Editora","Ano","Seção","Assuntos","Prateleira","Posição","Situação","Emprestado para","ISBN","Páginas"];
+  const row=(g,b)=>[g,b.codigo,b.titulo,b.subtitulo,b.autores,b.editora,b.ano,b.categoria,b.assuntos,normShelf(b.prateleira),b.posicao,STATUS[b.status_leitura||"nao"],b.emprestado_para,b.isbn,b.paginas].map(cell).join(";");
+  const rows=rep.grupo==="nenhum"?arr.map(b=>row("",b)):groups.flatMap(g=>g.list.map(b=>row(g.k,b)));
+  const csv="﻿"+[cell(repTitle()),head.join(";"),...rows].join("\n");
+  if(downloads===undefined){ try{ downloads=await window.claude?.use?.("downloads") }catch(e){ downloads=null } }
+  if(downloads){ try{ await downloads.save({filename:`relatorio-biblioteca-${rep.grupo}-${new Date().toISOString().slice(0,10)}.csv`,data:new Blob([csv],{type:"text/csv;charset=utf-8"})}); toast("Planilha pronta."); return }catch(e){ if(e&&e.code&&/declin|cancel/i.test(e.code)) return } }
+  try{ await navigator.clipboard.writeText(csv); toast("Planilha copiada. Cole no Excel.") }catch(e){ toast("Não foi possível exportar nesta visualização.") }
+}
+
+/* ---------- Relatórios gerenciais em PDF e Word ---------- */
+const RPT={ink:[17,17,17],gold:[176,141,69],goldL:[243,235,221],muted:[110,104,94],line:[226,219,204]};
+const fmtN=n=>Number(n||0).toLocaleString("pt-BR");
+const pct=(a,b)=>b?Math.round(a/b*100):0;
+const cleanEd=e=>String(e||"").replace(/\s*\(.*\)\s*$/,"").replace(/^editora\s+/i,"").trim();
+const safeTxt=s=>String(s??"").replace(/[★☆]/g,"*").replace(/[—–]/g,"-").replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/…/g,"...");
+function countBy(arr,fn){const m=new Map();arr.forEach(b=>[].concat(fn(b)).forEach(k=>{if(k==null||k==="")return;m.set(k,(m.get(k)||0)+1)}));return [...m.entries()].sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(String(b[0]),"pt-BR"))}
+function dataHoje(){return new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}
+
+/* Relatório gerencial completo */
+function buildGerencial(all){
+  const n=all.length, titulos=new Set(all.map(b=>norm(b.titulo))).size;
+  const autores=new Set(all.flatMap(b=>b.autores||[])), eds=new Set(all.map(b=>cleanEd(b.editora)).filter(Boolean));
+  const pags=all.reduce((s,b)=>s+(+b.paginas||0),0);
+  const st=k=>all.filter(b=>(b.status_leitura||"nao")===k).length;
+  const lidos=st("lido"), lendo=st("lendo")+st("relendo"), pendN=all.filter(pend).length, semLugar=all.filter(b=>!hasPlace(b)).length, empN=all.filter(emprest).length;
+  const secoes=[];
+  // 1. Seções
+  const porSec=countBy(all,b=>b.categoria||"Sem seção");
+  secoes.push({titulo:"Composição do acervo por seção",texto:`O acervo reúne ${fmtN(n)} volumes distribuídos em ${porSec.length} seções temáticas. A tabela mostra o peso de cada seção e quanto dela já foi lido.`,
+    tabela:{cols:[{h:"Seção",w:62},{h:"Livros",w:18,a:"right"},{h:"%",w:14,a:"right"},{h:"Lidos",w:16,a:"right"},{h:"Participação",w:64,bar:true}],
+      rows:porSec.map(([k,v])=>[k,fmtN(v),pct(v,n)+"%",fmtN(all.filter(b=>(b.categoria||"Sem seção")===k&&b.status_leitura==="lido").length),v/porSec[0][1]])}});
+  // 2. Autores
+  const porAut=countBy(all,b=>b.autores&&b.autores.length?b.autores:[]).slice(0,15);
+  secoes.push({titulo:"Autores mais presentes",texto:`São ${fmtN(autores.size)} autores no acervo. Abaixo, os ${porAut.length} com mais títulos.`,
+    tabela:{cols:[{h:"Autor",w:58},{h:"Livros",w:16,a:"right"},{h:"Títulos",w:100}],
+      rows:porAut.map(([k,v])=>[k,fmtN(v),all.filter(b=>(b.autores||[]).includes(k)).map(b=>b.titulo).slice(0,4).join("; ")+(v>4?"; ...":"")])}});
+  // 3. Editoras
+  const porEd=countBy(all,b=>cleanEd(b.editora)||null).slice(0,12);
+  secoes.push({titulo:"Editoras mais presentes",texto:`${fmtN(eds.size)} editoras diferentes. As principais:`,
+    tabela:{cols:[{h:"Editora",w:80},{h:"Livros",w:20,a:"right"},{h:"Participação",w:74,bar:true}],rows:porEd.map(([k,v])=>[k,fmtN(v),v/porEd[0][1]])}});
+  // 4. Assuntos
+  const porAss=countBy(all,b=>(b.assuntos||[]).map(a=>a.trim().toLowerCase()).filter(Boolean)).slice(0,15);
+  secoes.push({titulo:"Assuntos mais frequentes",texto:"Palavras-chave registradas nas fichas, indicando os temas que mais aparecem na estante.",
+    tabela:{cols:[{h:"Assunto",w:80},{h:"Livros",w:20,a:"right"},{h:"Frequência",w:74,bar:true}],rows:porAss.map(([k,v])=>[k.charAt(0).toUpperCase()+k.slice(1),fmtN(v),v/porAss[0][1]])}});
+  // 5. Leitura
+  const porSt=Object.keys(STATUS).map(k=>[STATUS[k],st(k)]).filter(([,v])=>v>0);
+  secoes.push({titulo:"Situação de leitura",texto:`${fmtN(lidos)} livros lidos (${pct(lidos,n)}% do acervo) e ${fmtN(lendo)} em leitura.`,
+    tabela:{cols:[{h:"Situação",w:60},{h:"Livros",w:20,a:"right"},{h:"%",w:16,a:"right"},{h:"Participação",w:78,bar:true}],rows:porSt.map(([k,v])=>[k,fmtN(v),pct(v,n)+"%",v/Math.max(...porSt.map(x=>x[1]))])}});
+  // 6. Estante
+  const shs=shelves();
+  const rowsSh=shs.map(sh=>{const inf=shelfInfo(sh);const rep=new Set();const seen=new Set();inf.list.forEach(b=>{seen.has(+b.posicao)?rep.add(+b.posicao):seen.add(+b.posicao)});return [sh,fmtN(inf.list.length),inf.list.length?`1 a ${inf.max}`:"-",fmtN(inf.gaps.length),rep.size?[...rep].sort((a,b)=>a-b).join(", "):"nenhuma"]});
+  rowsSh.push(["Sem lugar definido",fmtN(semLugar),"-","-","-"]);
+  secoes.push({titulo:"Ocupação da estante",texto:`${fmtN(n-semLugar)} livros já têm prateleira e posição definidas; ${fmtN(semLugar)} ainda aguardam lugar.`,
+    tabela:{cols:[{h:"Prateleira",w:40},{h:"Livros",w:20,a:"right"},{h:"Posições",w:30,a:"right"},{h:"Vagas",w:20,a:"right"},{h:"Posições repetidas",w:64}],rows:rowsSh}});
+  // 7. Décadas
+  const porDec=countBy(all,b=>b.ano?Math.floor(b.ano/10)*10:null).sort((a,b)=>a[0]-b[0]);
+  if(porDec.length) secoes.push({titulo:"Edições por década de publicação",tabela:{cols:[{h:"Década",w:40},{h:"Livros",w:20,a:"right"},{h:"Participação",w:114,bar:true}],rows:porDec.map(([k,v])=>[k+"s",fmtN(v),v/Math.max(...porDec.map(x=>x[1]))])}});
+  // 8. Empréstimos
+  const emp=all.filter(emprest);
+  secoes.push({titulo:"Livros emprestados",texto:emp.length?`${emp.length} livro(s) fora da estante neste momento.`:"Nenhum livro emprestado no momento.",
+    tabela:emp.length?{cols:[{h:"Livro",w:80},{h:"Com quem",w:50},{h:"Desde",w:22},{h:"Devolução",w:22}],rows:emp.map(b=>[b.titulo,b.emprestado_para,b.emprestado_em||"-",b.devolucao_prevista||"-"])}:null});
+  // 9. Pendências
+  const pd=all.filter(pend).sort((a,b)=>String(a.codigo).localeCompare(b.codigo));
+  secoes.push({titulo:"Pendências de cadastro",texto:pd.length?`${pd.length} fichas ainda precisam ser conferidas com o livro em mãos. A ficha catalográfica (verso da folha de rosto) resolve a maior parte dos casos.`:"Todas as fichas estão conferidas.",
+    tabela:pd.length?{cols:[{h:"Registro",w:22},{h:"Livro",w:62},{h:"O que falta",w:90}],rows:pd.map(b=>[b.codigo,b.titulo,String(b.pendencia||"").slice(0,140)])}:null});
+  // Conclusão
+  const top=porSec[0]||["-",0], top2=porSec[1];
+  const conclusao=`O acervo tem perfil claramente voltado para ${top[0].toLowerCase()}${top2?" e "+top2[0].toLowerCase():""}, que somam ${pct(top[1]+(top2?top2[1]:0),n)}% dos volumes, o que reflete uma biblioteca de formação profissional e de liderança. `+
+    `${pct(lidos,n)<50?`A leitura registrada ainda cobre ${pct(lidos,n)}% dos livros; vale atualizar a situação de leitura dos títulos já lidos para que os relatórios reflitam a realidade. `:""}`+
+    `${semLugar?`Para concluir a organização física, ${fmtN(semLugar)} livros ainda precisam de prateleira e posição. `:""}`+
+    `${pendN?`Recomenda-se também concluir a conferência das ${fmtN(pendN)} fichas pendentes, priorizando as obras técnicas de mercado imobiliário e avaliação, que são material de consulta profissional.`:""}`;
+  return {tipo:"gerencial",titulo:"Relatório Gerencial do Acervo",subtitulo:"Biblioteca Mário Rubens · posição em "+dataHoje(),
+    kpis:[[fmtN(n),"Volumes"],[fmtN(titulos),"Títulos"],[fmtN(autores.size),"Autores"],[fmtN(eds.size),"Editoras"],[fmtN(pags),"Páginas"],[pct(lidos,n)+"%","Lidos"],[fmtN(lendo),"Em leitura"],[fmtN(empN),"Emprestados"],[fmtN(semLugar),"Sem lugar"],[fmtN(pendN),"A conferir"]],
+    secoes,conclusao};
+}
+
+/* Relatório do recorte escolhido na tela de relatórios */
+function buildSelecao(arr,groups,meta){
+  const n=arr.length, lidos=arr.filter(b=>b.status_leitura==="lido").length, autores=new Set(arr.flatMap(b=>b.autores||[])).size;
+  const cols=[{h:"Reg.",w:21},{h:"Título e autor",w:80},{h:"Ano",w:12,a:"right"},{h:"Editora",w:32},{h:"Local",w:17},{h:"Leitura",w:17}];
+  const row=b=>[b.codigo,{t:b.titulo+(b.subtitulo?": "+b.subtitulo:""),s:authors(b)},b.ano||"-",cleanEd(b.editora)||"-",hasPlace(b)?normShelf(b.prateleira)+"/"+b.posicao:"-",STATUS[b.status_leitura||"nao"]];
+  const secoes=[];
+  if(meta.flat) secoes.push({titulo:"Relação de livros",tabela:{cols,rows:arr.slice().sort((a,b)=>String(a.titulo).localeCompare(b.titulo,"pt-BR")).map(row)}});
+  else {
+    const max=Math.max(1,...groups.map(g=>g.list.length));
+    secoes.push({titulo:"Resumo por "+meta.grupoNome.toLowerCase(),tabela:{cols:[{h:meta.grupoNome,w:70},{h:"Livros",w:18,a:"right"},{h:"%",w:14,a:"right"},{h:"Participação",w:72,bar:true}],rows:groups.map(g=>[g.k,fmtN(g.list.length),pct(g.list.length,n)+"%",g.list.length/max])}});
+    groups.forEach(g=>secoes.push({titulo:`${g.k} (${g.list.length})`,nivel:2,tabela:{cols,rows:g.list.map(row)}}));
+  }
+  return {tipo:"selecao",titulo:meta.titulo||"Relatório do Acervo",subtitulo:"Biblioteca Mário Rubens · "+dataHoje(),filtros:meta.filtros,
+    kpis:[[fmtN(n),"Livros"],[fmtN(autores),"Autores"],[pct(lidos,n)+"%","Lidos"],[meta.flat?"-":fmtN(groups.length),"Grupos"]],secoes};
+}
+
+/* ---- PDF (jsPDF + autotable) ---- */
+function pdfFromModel(model,jsPDF){
+  const doc=new jsPDF({unit:"mm",format:"a4"}); const W=210,H=297,M=18; const T=s=>safeTxt(s);
+  const header=(first)=>{
+    if(first){ doc.setFillColor(...RPT.ink); doc.rect(0,0,W,54,"F"); doc.setFillColor(...RPT.gold); doc.rect(0,54,W,1.2,"F");
+      doc.setTextColor(...RPT.gold); doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.text("EX LIBRIS  ·  ACERVO PESSOAL",M,17,{charSpace:1.2});
+      doc.setTextColor(255,255,255); doc.setFont("times","bold"); doc.setFontSize(25); doc.text(T(model.titulo),M,32);
+      doc.setFont("times","italic"); doc.setFontSize(12); doc.setTextColor(...RPT.gold); doc.text(T(model.subtitulo),M,42);
+    } else { doc.setTextColor(...RPT.gold); doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.text("BIBLIOTECA MÁRIO RUBENS",M,11,{charSpace:0.8});
+      doc.setTextColor(...RPT.muted); doc.setFont("helvetica","normal"); doc.text(T(model.titulo),W-M,11,{align:"right"}); doc.setDrawColor(...RPT.gold); doc.setLineWidth(0.3); doc.line(M,13.5,W-M,13.5) }
+  };
+  const footer=()=>{ const p=doc.internal.getCurrentPageInfo().pageNumber; doc.setDrawColor(...RPT.line); doc.setLineWidth(0.2); doc.line(M,H-14,W-M,H-14);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...RPT.muted); doc.text("Biblioteca Mário Rubens · Ex libris, acervo pessoal",M,H-9); doc.text(`Página ${p} de {total}`,W-M,H-9,{align:"right"}) };
+  header(true); let y=64;
+  if(model.filtros){ doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...RPT.muted); const l=doc.splitTextToSize(T("Critérios: "+model.filtros),W-2*M); doc.text(l,M,y); y+=l.length*4.2+3 }
+  // KPIs
+  const per=5, gap=3, bw=(W-2*M-gap*(per-1))/per, bh=19;
+  model.kpis.forEach(([v,l],i)=>{const r=Math.floor(i/per),c=i%per,x=M+c*(bw+gap),yy=y+r*(bh+gap);
+    doc.setDrawColor(...RPT.gold); doc.setLineWidth(0.35); doc.setFillColor(255,255,255); doc.rect(x,yy,bw,bh,"FD"); doc.setFillColor(...RPT.gold); doc.rect(x,yy,1.2,bh,"F");
+    doc.setFont("times","bold"); doc.setFontSize(17); doc.setTextColor(...RPT.ink); doc.text(T(String(v)),x+5,yy+10);
+    doc.setFont("helvetica","normal"); doc.setFontSize(6.8); doc.setTextColor(...RPT.muted); doc.text(T(String(l).toUpperCase()),x+5,yy+15.5,{charSpace:0.5})});
+  y+=Math.ceil(model.kpis.length/per)*(bh+gap)+6;
+  const ensure=h=>{ if(y+h>H-22){ doc.addPage(); header(false); y=22 } };
+  model.secoes.forEach(sec=>{
+    const lvl2=sec.nivel===2;
+    ensure(lvl2?18:26);
+    doc.setFont("times","bold"); doc.setFontSize(lvl2?12:15); doc.setTextColor(...RPT.ink); doc.text(T(sec.titulo),M,y);
+    if(!lvl2){ doc.setFillColor(...RPT.gold); doc.rect(M,y+2,14,0.8,"F") } y+=lvl2?4:7;
+    if(sec.texto){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(60,60,60); const l=doc.splitTextToSize(T(sec.texto),W-2*M); ensure(l.length*4.6); doc.text(l,M,y+1); y+=l.length*4.6+2 }
+    if(sec.tabela){
+      const t=sec.tabela, tot=t.cols.reduce((s,c)=>s+c.w,0), scale=(W-2*M)/tot;
+      const colStyles={}; t.cols.forEach((c,i)=>{colStyles[i]={cellWidth:c.w*scale,halign:c.a||"left"}});
+      const bodyArr=t.rows.map(r=>r.map((v,i)=>t.cols[i].bar?"":(v&&typeof v==="object"?T(v.t)+"\n"+T(v.s):T(v))));
+      const idxOf=new Map(bodyArr.map((r,i)=>[r,i])); const rawOf=d=>{const i=idxOf.get(d.row.raw);return i==null?null:t.rows[i][d.column.index]};
+      doc.autoTable({startY:y,margin:{left:M,right:M,top:20,bottom:20},head:[t.cols.map(c=>T(c.h))],
+        body:bodyArr,
+        theme:"plain",styles:{font:"helvetica",fontSize:8.6,cellPadding:{top:1.8,bottom:1.8,left:2,right:2},textColor:[35,35,35],valign:"middle",overflow:"linebreak"},
+        headStyles:{fillColor:RPT.ink,textColor:[214,184,120],fontStyle:"bold",fontSize:7.8},alternateRowStyles:{fillColor:[249,247,242]},columnStyles:colStyles,
+        didParseCell:d=>{},
+        didDrawCell:d=>{ if(d.section!=="body") return; const c=t.cols[d.column.index]; const raw=rawOf(d);
+          if(c.bar&&raw!=null){ const w=(d.cell.width-4)*Math.max(0,Math.min(1,+raw||0)); doc.setFillColor(...RPT.goldL); doc.rect(d.cell.x+2,d.cell.y+d.cell.height/2-1.6,d.cell.width-4,3.2,"F"); doc.setFillColor(...RPT.gold); doc.rect(d.cell.x+2,d.cell.y+d.cell.height/2-1.6,w,3.2,"F") }
+          { doc.setDrawColor(...RPT.line); doc.setLineWidth(0.15); doc.line(d.cell.x,d.cell.y+d.cell.height,d.cell.x+d.cell.width,d.cell.y+d.cell.height) } },
+      });
+      y=doc.lastAutoTable.finalY+8;
+    } else y+=3;
+  });
+  if(model.conclusao){ { doc.setFont("helvetica","normal"); doc.setFontSize(9.8); const l0=doc.splitTextToSize(T(model.conclusao),W-2*M-10); ensure(l0.length*4.8+20) } doc.setFont("times","bold"); doc.setFontSize(15); doc.setTextColor(...RPT.ink); doc.text(T(model.conclusaoTitulo||"Considerações finais"),M,y); doc.setFillColor(...RPT.gold); doc.rect(M,y+2,14,0.8,"F"); y+=8;
+    doc.setFont("helvetica","normal"); doc.setFontSize(9.8); const l=doc.splitTextToSize(T(model.conclusao),W-2*M-10); const h=l.length*4.8+8; ensure(h); doc.setFillColor(...RPT.goldL); doc.rect(M,y-2,W-2*M,h,"F"); doc.setFillColor(...RPT.gold); doc.rect(M,y-2,1.2,h,"F");
+    doc.setFont("helvetica","normal"); doc.setFontSize(9.8); doc.setTextColor(40,40,40); doc.text(l,M+6,y+4); y+=h+6 }
+  // cabeçalhos das páginas seguintes e rodapés
+  const pages=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pages;i++){ doc.setPage(i); if(i>1){ doc.setFillColor(255,255,255); doc.rect(0,0,W,15,"F"); header(false) } footer() }
+  doc.putTotalPages("{total}");
+  return doc;
+}
+
+/* ---- Word .docx (biblioteca docx) ---- */
+function docxFromModel(model,D){
+  const {Document,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,AlignmentType,BorderStyle,ShadingType,Footer,Header,PageNumber,HeadingLevel,TableLayoutType}=D;
+  const GOLD="B08D45",INK="111111",GL="F3EBDD",MUT="6E685E",LINE="E2DBCC";
+  const run=(t,o={})=>new TextRun({text:String(t??""),font:o.font||"Calibri",size:o.size||19,bold:o.bold,italics:o.italics,color:o.color||"222222",characterSpacing:o.cs});
+  const p=(children,o={})=>new Paragraph({children:[].concat(children),alignment:o.align,spacing:{before:o.before||0,after:o.after??80},shading:o.shade?{type:ShadingType.CLEAR,fill:o.shade,color:"auto"}:undefined,border:o.border,indent:o.indent});
+  const noB={style:BorderStyle.NONE,size:0,color:"FFFFFF"};
+  const CW=9900;
+  const cell=(children,o={})=>new TableCell({children:[].concat(children),width:o.w?{size:Math.round(o.w),type:WidthType.DXA}:undefined,shading:o.fill?{type:ShadingType.CLEAR,fill:o.fill,color:"auto"}:undefined,
+    margins:{top:50,bottom:50,left:90,right:90},verticalAlign:"center",borders:{top:noB,left:noB,right:noB,bottom:{style:BorderStyle.SINGLE,size:4,color:o.bline||LINE}},columnSpan:o.span});
+  const bar=(v,cw)=>{const tot=Math.max(300,Math.round(cw-200)); const w=Math.max(40,Math.min(tot,Math.round(tot*(+v||0)))); const rest=tot-w; const tiny=()=>p(run("",{size:2}),{after:0});
+    return new Table({width:{size:tot,type:WidthType.DXA},columnWidths:rest>0?[w,rest]:[w],layout:TableLayoutType.FIXED,borders:{top:noB,bottom:noB,left:noB,right:noB,insideHorizontal:noB,insideVertical:noB},
+    rows:[new TableRow({height:{value:130,rule:"exact"},children:[new TableCell({children:[tiny()],width:{size:w,type:WidthType.DXA},margins:{top:0,bottom:0,left:0,right:0},shading:{type:ShadingType.CLEAR,fill:GOLD,color:"auto"},borders:{top:noB,bottom:noB,left:noB,right:noB}}),
+      ...(rest>0?[new TableCell({children:[tiny()],width:{size:rest,type:WidthType.DXA},margins:{top:0,bottom:0,left:0,right:0},shading:{type:ShadingType.CLEAR,fill:GL,color:"auto"},borders:{top:noB,bottom:noB,left:noB,right:noB}})]:[])]})]})};
+  const kids=[];
+  // capa / cabeçalho
+  kids.push(new Table({width:{size:9900,type:WidthType.DXA},columnWidths:[9900],borders:{top:noB,bottom:{style:BorderStyle.SINGLE,size:18,color:GOLD},left:noB,right:noB,insideHorizontal:noB,insideVertical:noB},rows:[new TableRow({children:[new TableCell({shading:{type:ShadingType.CLEAR,fill:INK,color:"auto"},margins:{top:300,bottom:300,left:300,right:300},borders:{top:noB,bottom:noB,left:noB,right:noB},
+    children:[p(run("EX LIBRIS · ACERVO PESSOAL",{size:15,bold:true,color:"D6B878",cs:30}),{after:120}),p(run(model.titulo,{font:"Georgia",size:44,bold:true,color:"FFFFFF"}),{after:80}),p(run(model.subtitulo,{font:"Georgia",size:22,italics:true,color:"D6B878"}),{after:0})]})]})]}));
+  kids.push(p(run(""),{after:120}));
+  if(model.filtros) kids.push(p(run("Critérios: "+model.filtros,{size:17,color:MUT,italics:true}),{after:160}));
+  // KPIs em grade de 5
+  const per=5, rowsK=[]; for(let i=0;i<model.kpis.length;i+=per){ const sl=model.kpis.slice(i,i+per); while(sl.length<per) sl.push(["",""]);
+    rowsK.push(new TableRow({children:sl.map(([v,l])=>new TableCell({width:{size:1980,type:WidthType.DXA},margins:{top:80,bottom:80,left:120,right:80},
+      borders:{top:{style:BorderStyle.SINGLE,size:4,color:v===""?"FFFFFF":GOLD},bottom:{style:BorderStyle.SINGLE,size:4,color:v===""?"FFFFFF":GOLD},left:{style:BorderStyle.SINGLE,size:18,color:v===""?"FFFFFF":GOLD},right:{style:BorderStyle.SINGLE,size:4,color:v===""?"FFFFFF":GOLD}},
+      children:[p(run(v,{font:"Georgia",size:String(v).length>8?24:32,bold:true,color:INK}),{after:0}),p(run(String(l).toUpperCase(),{size:13,color:MUT,cs:10}),{after:0})]}))})) }
+  kids.push(new Table({width:{size:9900,type:WidthType.DXA},columnWidths:[1980,1980,1980,1980,1980],layout:TableLayoutType.FIXED,rows:rowsK,borders:{insideHorizontal:{style:BorderStyle.SINGLE,size:30,color:"FFFFFF"},insideVertical:{style:BorderStyle.SINGLE,size:30,color:"FFFFFF"}}}));
+  kids.push(p(run(""),{after:200}));
+  model.secoes.forEach(sec=>{
+    const lvl2=sec.nivel===2;
+    kids.push(p(run(sec.titulo,{font:"Georgia",size:lvl2?24:30,bold:true,color:INK}),{before:lvl2?160:280,after:lvl2?60:40,border:lvl2?undefined:{bottom:{style:BorderStyle.SINGLE,size:8,color:GOLD,space:4}}}));
+    if(sec.texto) kids.push(p(run(sec.texto,{size:19,color:"3C3C3C"}),{after:100}));
+    if(sec.tabela){ const t=sec.tabela, tot=t.cols.reduce((s,c)=>s+c.w,0); const cw=t.cols.map(c=>Math.round(c.w/tot*CW));
+      const head=new TableRow({tableHeader:true,children:t.cols.map(c=>cell(p(run(c.h.toUpperCase(),{size:15,bold:true,color:"D6B878",cs:10}),{align:c.a==="right"?AlignmentType.RIGHT:AlignmentType.LEFT,after:0}),{w:cw[t.cols.indexOf(c)],fill:INK,bline:INK}))});
+      const body=t.rows.map((r,ri)=>new TableRow({cantSplit:true,children:r.map((v,i)=>{const c=t.cols[i]; const fill=ri%2?"F9F7F2":undefined;
+        if(c.bar) return cell(bar(v,cw[i]),{w:cw[i],fill});
+        if(v&&typeof v==="object") return cell([p(run(v.t,{size:18,bold:true,color:INK}),{after:0}),p(run(v.s,{size:16,color:MUT}),{after:0})],{w:cw[i],fill});
+        return cell(p(run(v,{size:18}),{align:c.a==="right"?AlignmentType.RIGHT:AlignmentType.LEFT,after:0}),{w:cw[i],fill})})}));
+      kids.push(new Table({width:{size:CW,type:WidthType.DXA},columnWidths:cw,layout:TableLayoutType.FIXED,rows:[head,...body]})); kids.push(p(run(""),{after:60})) }
+  });
+  if(model.conclusao){ kids.push(p(run(model.conclusaoTitulo||"Considerações finais",{font:"Georgia",size:30,bold:true,color:INK}),{before:280,after:80,border:{bottom:{style:BorderStyle.SINGLE,size:8,color:GOLD,space:4}}}));
+    kids.push(p(run(model.conclusao,{size:20,color:"282828"}),{shade:GL,border:{left:{style:BorderStyle.SINGLE,size:24,color:GOLD,space:8}},indent:{left:160},after:200})) }
+  kids.push(p([run("Biblioteca Mário Rubens",{font:"Georgia",bold:true,size:20,color:INK}),run("  ·  Ex libris, acervo pessoal",{size:18,color:MUT,italics:true})],{before:300,align:AlignmentType.CENTER}));
+  return new Document({creator:"Biblioteca Mário Rubens",title:model.titulo,styles:{default:{document:{run:{font:"Calibri",size:19}}}},
+    sections:[{properties:{page:{margin:{top:1000,bottom:1000,left:1000,right:1000}}},
+      headers:{default:new Header({children:[p([run("BIBLIOTECA MÁRIO RUBENS",{size:14,bold:true,color:GOLD,cs:20}),run("   "+model.titulo,{size:14,color:MUT})],{align:AlignmentType.RIGHT,after:0})]})},
+      footers:{default:new Footer({children:[new Paragraph({alignment:AlignmentType.RIGHT,border:{top:{style:BorderStyle.SINGLE,size:4,color:LINE,space:4}},children:[run("Biblioteca Mário Rubens · Ex libris     Página ",{size:14,color:MUT}),new TextRun({children:[PageNumber.CURRENT],size:14,color:MUT,font:"Calibri"}),run(" de ",{size:14,color:MUT}),new TextRun({children:[PageNumber.TOTAL_PAGES],size:14,color:MUT,font:"Calibri"})]})]})},
+      children:kids}]});
+}
+
+function filtrosTexto(){const f=[];if(rep.cat)f.push("Seção: "+rep.cat);if(rep.autor)f.push("Autor: "+rep.autor);if(rep.assunto)f.push("Assunto: "+rep.assunto);if(rep.editora)f.push("Editora: "+rep.editora);if(rep.status)f.push("Leitura: "+STATUS[rep.status]);if(rep.prat)f.push(rep.prat==="__sem"?"Sem lugar na estante":"Prateleira "+rep.prat);if(rep.anoDe||rep.anoAte)f.push("Publicação: "+(rep.anoDe||"…")+" a "+(rep.anoAte||"…"));if(rep.q)f.push('Palavra: "'+rep.q+'"');const fl={pend:"Apenas a conferir",emp:"Apenas emprestados",semlugar:"Apenas sem lugar",repetidos:"Títulos repetidos"}[rep.flag];if(fl)f.push(fl);return f.length?f.join(" · "):"Todo o acervo"}
+function selModel(arr,groups){const flat=rep.grupo==="nenhum";const nome=GROUPS[rep.grupo].replace(/\s*\(.*\)/,"");return buildSelecao(arr,groups,{flat,grupoNome:nome,titulo:flat?"Relação de Livros":"Acervo por "+nome.toLowerCase(),filtros:"Agrupado por "+GROUPS[rep.grupo].toLowerCase()+" · "+filtrosTexto()})}
+function loadScript(src){return new Promise((res,rej)=>{const sc=document.createElement("script");sc.src=src;sc.onload=res;sc.onerror=()=>rej(new Error("load"));document.head.appendChild(sc)})}
+async function libPDF(){ if(!window.jspdf) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"); if(!window.jspdf.jsPDF.API.autoTable) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"); return window.jspdf.jsPDF }
+async function libDOCX(){ if(!window.docx) await loadScript("https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"); return window.docx }
+let gerando=false;
+async function gerarDoc(fmt,model){
+  if(gerando) return; gerando=true; toast(fmt==="pdf"?"Gerando o PDF…":"Gerando o Word…");
+  try{
+    let blob;
+    if(fmt==="pdf"){ const J=await libPDF(); blob=pdfFromModel(model,J).output("blob") }
+    else { const D=await libDOCX(); blob=await D.Packer.toBlob(docxFromModel(model,D)) }
+    const nome=(model.titulo||"Relatorio").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"")+"-"+new Date().toISOString().slice(0,10)+"."+fmt;
+    if(downloads===undefined){ try{ downloads=await window.claude?.use?.("downloads") }catch(e){ downloads=null } }
+    if(downloads){ await downloads.save({filename:nome,data:blob}); toast("Arquivo pronto: "+nome) }
+    else { const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=nome; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000); toast("Arquivo gerado: "+nome) }
+  }catch(e){ if(!(e&&e.code&&/declin|cancel/i.test(e.code))) toast(e&&e.message==="load"?"Não foi possível carregar o gerador de documentos. Verifique a internet e tente de novo.":"Não foi possível gerar o arquivo agora.") }
+  finally{ gerando=false }
+}
+
+/* ---------- Plano de leitura ---------- */
+const cfgDoc=()=>({ordem:cfg.ordem,por_prateleira:cfg.por_prateleira,estante:cfg.estante,organizado_em:cfg.organizado_em||null,fechar_espaco:cfg.fechar_espaco!==false,leitura:cfg.leitura||null});
+const LEIT_DEF={min_dia:60,min_biblia:15,pag_hora:25,dias_semana:7,inicio:""};
+const PAG_PADRAO=220, BIBLIA_HORAS=72;
+const leit=()=>({...LEIT_DEF,...(cfg.leitura||{})});
+const fila=()=>books.filter(b=>+b.fila>0).sort((a,b)=>a.fila-b.fila||String(a.codigo).localeCompare(b.codigo));
+const filaMax=()=>books.reduce((m,b)=>Math.max(m,+b.fila||0),0);
+const filaPos=id=>fila().findIndex(b=>b.id===id)+1;
+const hojeISO=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+const restantes=b=>Math.max(0,(+b.paginas||PAG_PADRAO)-(+b.paginas_lidas||0));
+function diaDeLeitura(d,dps){const w=d.getDay();return dps>=7||(dps===6?w!==0:(w!==0&&w!==6))}
+function nEsimoDia(inicio,n,dps){const d=new Date(inicio+"T12:00:00");let c=0;for(let i=0;i<20000;i++){if(diaDeLeitura(d,dps)){c++;if(c>=n)return new Date(d)}d.setDate(d.getDate()+1)}return d}
+const fmtData=d=>d.toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"}).replace(/\./g,"");
+function fmtPrazo(dias){
+  if(dias<=0) return "-"; if(dias<45) return `${dias} ${dias===1?"dia":"dias"}`;
+  const m=Math.round(dias/30.44); if(m<12) return `cerca de ${m} meses`;
+  const a=Math.floor(m/12), r=m%12; return `cerca de ${a} ${a===1?"ano":"anos"}${r?` e ${r} ${r===1?"mês":"meses"}`:""}`;
+}
+function calcPlano(){
+  const L=leit(), inicio=L.inicio||hojeISO(), mLiv=Math.max(0,L.min_dia-L.min_biblia), ppd=L.pag_hora*mLiv/60;
+  let cum=0; const itens=fila().map((b,i)=>{
+    const rest=restantes(b), ini=cum; cum+=rest;
+    const d0=ppd?Math.floor(ini/ppd)+1:0, d1=ppd?Math.max(d0,Math.ceil(cum/ppd)):0;
+    return {b,ordem:i+1,rest,estimado:!(+b.paginas),horas:rest/L.pag_hora,diasLeit:ppd?rest/ppd:0,ini:ppd?nEsimoDia(inicio,d0,L.dias_semana):null,fim:ppd?nEsimoDia(inicio,d1,L.dias_semana):null};
+  });
+  const totDiasLeit=ppd?Math.ceil(cum/ppd):0, fim=ppd&&cum?nEsimoDia(inicio,totDiasLeit,L.dias_semana):null;
+  const corridos=fim?Math.round((fim-new Date(inicio+"T12:00:00"))/864e5)+1:0;
+  const bibDiasLeit=L.min_biblia?Math.ceil(BIBLIA_HORAS*60/L.min_biblia):0, bibFim=bibDiasLeit?nEsimoDia(inicio,bibDiasLeit,L.dias_semana):null;
+  const bibCorridos=bibFim?Math.round((bibFim-new Date(inicio+"T12:00:00"))/864e5)+1:0;
+  return {L,inicio,mLiv,ppd,itens,pags:cum,horas:L.pag_hora?cum/L.pag_hora:0,totDiasLeit,fim,corridos,bibFim,bibCorridos,estimados:itens.filter(x=>x.estimado).length};
+}
+let planOpen=false, planQ="";
+function openPlan(){ planOpen=true; planQ=""; drawPlan() }
+async function salvarLeit(patch){ cfg.leitura={...leit(),...patch}; drawPlan(); try{ await db.doc("config/geral").set(cfgDoc()) }catch(e){ toast("Não foi possível gravar a configuração agora.") } }
+async function gravarFila(ids){ // renumera a fila 1..n na ordem dada
+  const now=new Date().toISOString();
+  for(let i=0;i<ids.length;i++){ const b=books.find(x=>x.id===ids[i]); if(b&&+b.fila!==i+1) await db.collection("livros").doc(b.id).update({fila:i+1,atualizado_em:now}) }
+}
+function filaAcao(fn){ guard(async()=>{ await fn(); }) }
+function drawPlan(focus){
+  const P=calcPlano(), L=P.L, ids=P.itens.map(x=>x.b.id);
+  const q=norm(planQ).trim(), naFila=new Set(ids);
+  const cand=books.filter(b=>!naFila.has(b.id)&&!["lido","consulta"].includes(b.status_leitura||"nao"));
+  const prio={lendo:0,parcial:1,relendo:2,nao:3,abandonado:4};
+  const res=(q.length>=2?cand.filter(b=>norm([b.titulo,b.subtitulo,authors(b),b.codigo,b.categoria,(b.assuntos||[]).join(" ")].join(" ")).includes(q)):cand.filter(b=>["lendo","parcial","relendo"].includes(b.status_leitura)))
+    .sort((a,b)=>(prio[a.status_leitura||"nao"]??5)-(prio[b.status_leitura||"nao"]??5)||String(a.titulo).localeCompare(b.titulo,"pt-BR")).slice(0,10);
+  const opt=(arr,v,suf="")=>arr.map(x=>`<option value="${x}" ${+v===x?"selected":""}>${x}${suf}</option>`).join("");
+  const bibPlano=L.min_biblia===15?"1":L.min_biblia===8?"2":L.min_biblia===0?"0":"x";
+  const rows=P.itens.map((x,i)=>{const b=x.b; return `<div class="pq">
+      <span class="pq-n">${x.ordem}</span>
+      <span class="pq-t"><b>${esc(b.titulo)}</b><small>${esc(authors(b))} · ${STATUS[b.status_leitura||"nao"]}${+b.paginas_lidas?` · ${b.paginas_lidas} de ${b.paginas||"?"} pág. lidas`:""}</small></span>
+      <span class="pq-d"><b>${fmtN(x.rest)} pág.${x.estimado?"*":""}</b><small>${x.diasLeit<1?"menos de 1 dia":`${Math.ceil(x.diasLeit)} dias`} · até ${x.fim?fmtData(x.fim):"-"}</small></span>
+      <span class="pq-a"><button class="mini" type="button" data-ptop="${esc(b.id)}" ${i?"":"disabled"} title="Passar para o primeiro lugar">Topo</button><button class="mini" type="button" data-pup="${esc(b.id)}" ${i?"":"disabled"} aria-label="Subir">↑</button><button class="mini" type="button" data-pdn="${esc(b.id)}" ${i<ids.length-1?"":"disabled"} aria-label="Descer">↓</button><button class="mini" type="button" data-plido="${esc(b.id)}" title="Marcar como lido e tirar da fila">Lido</button><button class="mini" type="button" data-pout="${esc(b.id)}" aria-label="Tirar da fila">×</button></span>
+    </div>`}).join("");
+  $("#drawerRoot").innerHTML=`<div class="scrim" id="scrim"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="Plano de leitura" style="width:min(880px,100%)">
+    <div class="d-head"><div class="d-title"><span class="eyebrow">Plano de leitura</span><h2>O que vou ler, e em quanto tempo</h2><p>Monte a fila na ordem de prioridade. O prazo considera até uma hora por dia, já descontado o tempo da leitura bíblica.</p></div><button class="x" type="button" id="btnClose" aria-label="Fechar">×</button></div>
+    <div class="d-body"><div style="display:flex;flex-direction:column;gap:16px">
+      <div class="rep-ctrl">
+        <div class="fld"><label for="l_min">Tempo total de leitura por dia</label><select id="l_min">${opt([20,25,30,35,40,45,50,55,60],L.min_dia," min")}</select><span class="hint">Limite de uma hora por dia.</span></div>
+        <div class="fld"><label for="l_bplano">Leitura da Bíblia</label><select id="l_bplano"><option value="1" ${bibPlano==="1"?"selected":""}>Bíblia em 1 ano (15 min)</option><option value="2" ${bibPlano==="2"?"selected":""}>Bíblia em 2 anos (8 min)</option><option value="x" ${bibPlano==="x"?"selected":""}>Outro tempo</option><option value="0" ${bibPlano==="0"?"selected":""}>Fora deste horário</option></select></div>
+        <div class="fld"><label for="l_bib">Minutos da Bíblia por dia</label><input id="l_bib" type="number" min="0" max="${L.min_dia-5}" inputmode="numeric" value="${L.min_biblia}"><span class="hint">Descontados da hora diária.</span></div>
+        <div class="fld"><label for="l_pag">Ritmo de leitura</label><select id="l_pag">${opt([15,20,25,30,35,40,45],L.pag_hora," páginas por hora")}</select><span class="hint">Técnicos 15 a 20; gestão e fé 25 a 35; biografias 35 a 45.</span></div>
+        <div class="fld"><label for="l_dias">Dias de leitura</label><select id="l_dias"><option value="7" ${L.dias_semana===7?"selected":""}>Todos os dias</option><option value="6" ${L.dias_semana===6?"selected":""}>Segunda a sábado</option><option value="5" ${L.dias_semana===5?"selected":""}>Segunda a sexta</option></select></div>
+        <div class="fld"><label for="l_ini">Começar em</label><input id="l_ini" type="date" value="${esc(P.inicio)}"></div>
+      </div>
+      <div class="kpis"><div><b>${P.itens.length}</b><span>Livros na fila</span></div><div><b>${fmtN(P.pags)}</b><span>Páginas a ler</span></div><div><b>${P.mLiv} min</b><span>Livros por dia</span></div><div><b>${fmtN(Math.round(P.ppd))}</b><span>Páginas por dia</span></div><div><b>${P.itens.length?fmtPrazo(P.corridos).replace("cerca de ",""):"-"}</b><span>Prazo estimado</span></div><div><b>${P.fim?fmtData(P.fim):"-"}</b><span>Conclusão prevista</span></div></div>
+      ${P.mLiv<=0?`<div class="callout"><b>Sem tempo para os livros</b><span>O tempo da Bíblia ocupa toda a hora diária. Reduza os minutos da Bíblia ou aumente o tempo total.</span></div>`:""}
+      <div class="callout info"><b>Como fica o seu dia</b><span>${L.min_biblia?`${L.min_biblia} min de Bíblia + `:""}${P.mLiv} min de livros = ${L.min_dia} min por dia${L.dias_semana<7?`, ${L.dias_semana} dias por semana`:""}. ${P.itens.length?`São cerca de ${fmtN(Math.round(P.horas))} horas de leitura para concluir a fila.`:""}${L.min_biblia&&P.bibFim?` No ritmo de ${L.min_biblia} min por dia, a Bíblia inteira (cerca de ${BIBLIA_HORAS} horas de leitura) fica pronta por volta de ${fmtData(P.bibFim)}.`:""}${P.estimados?` <i>* ${P.estimados} livro(s) sem número de páginas na ficha: considerei ${PAG_PADRAO} páginas.</i>`:""}</span></div>
+      <div class="sec-title" style="margin:0"><h2 style="font-size:22px">Fila por prioridade</h2><span>${P.itens.length?"O primeiro da lista é o próximo a ler.":""}</span></div>
+      <div class="pqs">${rows||'<div class="empty"><b>A fila está vazia</b>Busque abaixo os livros que quer ler e toque em “+ Fila”.</div>'}</div>
+      <div class="arr-search"><label for="p_q" style="font-weight:600">Adicionar à fila</label><input id="p_q" type="search" autocomplete="off" placeholder="Digite parte do título, autor, assunto ou seção…" value="${esc(planQ)}">
+        <div class="res">${res.map(b=>`<button type="button" data-padd="${esc(b.id)}"><span><b>${esc(b.titulo)}</b><br><small>${esc(authors(b))} · ${esc(b.categoria||"")} · ${STATUS[b.status_leitura||"nao"]}</small></span><span class="where">${b.paginas?fmtN(restantes(b))+" pág.":"? pág."} · + Fila</span></button>`).join("")||`<small style="color:var(--muted)">${q.length>=2?"Nenhum livro disponível com essa busca.":"Digite ao menos duas letras. Sem busca, aparecem aqui os livros em leitura e os lidos parcialmente."}</small>`}</div>
+      </div>
+    </div></div>
+    <div class="d-foot"><div class="grp"><span class="note">Prazo estimado com base no ritmo informado.</span></div><div class="grp"><button class="btn" type="button" id="pWord" ${P.itens.length?"":"disabled"}>Plano em Word</button><button class="btn primary" type="button" id="pPdf" ${P.itens.length?"":"disabled"}>Plano em PDF</button></div></div>
+  </aside>`;
+  $("#scrim").onclick=closeDrawer; $("#btnClose").onclick=closeDrawer;
+  $("#l_min").onchange=e=>{const v=+e.target.value; salvarLeit({min_dia:v,min_biblia:Math.min(L.min_biblia,v-5)})};
+  $("#l_bplano").onchange=e=>{const v=e.target.value; if(v==="1")salvarLeit({min_biblia:15}); else if(v==="2")salvarLeit({min_biblia:8}); else if(v==="0")salvarLeit({min_biblia:0}); else {const n=$("#l_bib");n.focus();n.select()}};
+  $("#l_bib").onchange=e=>{let v=Math.round(+e.target.value||0); v=Math.max(0,Math.min(L.min_dia-5,v)); salvarLeit({min_biblia:v})};
+  $("#l_pag").onchange=e=>salvarLeit({pag_hora:+e.target.value});
+  $("#l_dias").onchange=e=>salvarLeit({dias_semana:+e.target.value});
+  $("#l_ini").onchange=e=>salvarLeit({inicio:e.target.value===hojeISO()?"":e.target.value});
+  const qIn=$("#p_q"); qIn.oninput=()=>{planQ=qIn.value;const pos=qIn.selectionStart;drawPlan(true);const n=$("#p_q");n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}};
+  qIn.onkeydown=e=>{if(e.key==="Enter"){const f=document.querySelector("[data-padd]");if(f){e.preventDefault();f.click()}}};
+  if(focus===true){}
+  document.querySelectorAll("[data-padd]").forEach(x=>x.onclick=()=>filaAcao(async()=>{const b=books.find(y=>y.id===x.dataset.padd); await gravarFila(ids); await db.collection("livros").doc(b.id).update({fila:ids.length+1,atualizado_em:new Date().toISOString()}); planQ=""; toast(`“${b.titulo}” entrou na fila em ${ids.length+1}º lugar.`)}));
+  const mover=(id,fn)=>filaAcao(async()=>{const a=ids.slice(), i=a.indexOf(id); fn(a,i); await gravarFila(a)});
+  document.querySelectorAll("[data-pup]").forEach(x=>x.onclick=()=>mover(x.dataset.pup,(a,i)=>{if(i>0)[a[i-1],a[i]]=[a[i],a[i-1]]}));
+  document.querySelectorAll("[data-pdn]").forEach(x=>x.onclick=()=>mover(x.dataset.pdn,(a,i)=>{if(i<a.length-1)[a[i+1],a[i]]=[a[i],a[i+1]]}));
+  document.querySelectorAll("[data-ptop]").forEach(x=>x.onclick=()=>mover(x.dataset.ptop,(a,i)=>{a.splice(i,1);a.unshift(x.dataset.ptop)}));
+  document.querySelectorAll("[data-pout]").forEach(x=>x.onclick=()=>filaAcao(async()=>{const id=x.dataset.pout; await db.collection("livros").doc(id).update({fila:null,atualizado_em:new Date().toISOString()}); await gravarFila(ids.filter(y=>y!==id)); toast("Livro retirado da fila.")}));
+  document.querySelectorAll("[data-plido]").forEach(x=>x.onclick=()=>filaAcao(async()=>{const id=x.dataset.plido, b=books.find(y=>y.id===id); await db.collection("livros").doc(id).update({fila:null,status_leitura:"lido",paginas_lidas:+b.paginas||null,fim_leitura:b.fim_leitura||hojeISO(),atualizado_em:new Date().toISOString()}); await gravarFila(ids.filter(y=>y!==id)); toast(`“${b.titulo}” marcado como lido.`)}));
+  $("#pPdf").onclick=()=>gerarDoc("pdf",buildPlano());
+  $("#pWord").onclick=()=>gerarDoc("docx",buildPlano());
+}
+function buildPlano(){
+  const P=calcPlano(), L=P.L;
+  const premissas=`Tempo diário de leitura: ${L.min_dia} minutos, sendo ${L.min_biblia?`${L.min_biblia} minutos dedicados à Bíblia e `:""}${P.mLiv} minutos aos livros da fila. Ritmo considerado: ${L.pag_hora} páginas por hora, o que dá cerca de ${fmtN(Math.round(P.ppd))} páginas por dia. ${L.dias_semana===7?"Leitura todos os dias":L.dias_semana===6?"Leitura de segunda a sábado":"Leitura de segunda a sexta"}, a partir de ${fmtData(new Date(P.inicio+"T12:00:00"))}.${P.estimados?` Para ${P.estimados} livro(s) sem o número de páginas na ficha, foram consideradas ${PAG_PADRAO} páginas.`:""}`;
+  const secoes=[{titulo:"Premissas do plano",texto:premissas},
+    {titulo:"Fila de leitura por prioridade",texto:"Os livros aparecem na ordem em que serão lidos. Para os que já foram começados, conta só o que falta.",
+     tabela:{cols:[{h:"#",w:8,a:"right"},{h:"Livro e autor",w:78},{h:"Páginas",w:18,a:"right"},{h:"Horas",w:15,a:"right"},{h:"Início",w:24},{h:"Término",w:24}],
+       rows:P.itens.map(x=>[String(x.ordem),{t:x.b.titulo+(x.b.subtitulo?": "+x.b.subtitulo:""),s:authors(x.b)+(+x.b.paginas_lidas?` · já lidas ${x.b.paginas_lidas} pág.`:"")},fmtN(x.rest)+(x.estimado?"*":""),(Math.round(x.horas*10)/10).toLocaleString("pt-BR"),x.ini?fmtData(x.ini):"-",x.fim?fmtData(x.fim):"-"])}}];
+  // marcos por mês
+  const porMes=new Map(); P.itens.forEach(x=>{if(!x.fim)return; const k=x.fim.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}); porMes.set(k,(porMes.get(k)||0)+1)});
+  if(porMes.size>1){ const mx=Math.max(...porMes.values()); secoes.push({titulo:"Livros concluídos por mês",tabela:{cols:[{h:"Mês",w:50},{h:"Livros",w:20,a:"right"},{h:"Ritmo",w:104,bar:true}],rows:[...porMes.entries()].map(([k,v])=>[k.charAt(0).toUpperCase()+k.slice(1),String(v),v/mx])}}) }
+  const prim=P.itens[0];
+  const consid=`Com ${P.mLiv} minutos diários dedicados aos livros, a fila de ${P.itens.length} ${P.itens.length===1?"título":"títulos"} soma ${fmtN(P.pags)} páginas e deve ser concluída em ${fmtPrazo(P.corridos)}, com previsão para ${P.fim?fmtData(P.fim):"-"}. `+
+    `${L.min_biblia&&P.bibFim?`Mantendo ${L.min_biblia} minutos diários de Bíblia, a leitura bíblica completa fica pronta por volta de ${fmtData(P.bibFim)}. `:""}`+
+    `${prim?`O próximo livro é “${prim.b.titulo}”. `:""}O prazo é uma estimativa: vale revisar o ritmo de páginas por hora depois dos dois primeiros livros, porque obras técnicas costumam exigir mais tempo do que biografias e textos de desenvolvimento pessoal. Ao terminar um livro, use “Lido” no plano para que as datas se recalculem.`;
+  return {tipo:"plano",titulo:"Plano de Leitura",subtitulo:"Biblioteca Mário Rubens · "+dataHoje(),
+    kpis:[[fmtN(P.itens.length),"Livros"],[fmtN(P.pags),"Páginas"],[P.mLiv+" min","Livros por dia"],[L.min_biblia+" min","Bíblia por dia"],[P.fim?P.fim.toLocaleDateString("pt-BR"):"-","Conclusão"]],
+    secoes,conclusao:consid,conclusaoTitulo:"Considerações"};
+}
+
+/* ---------- Exportação ---------- */
+async function exportCSV(){
+  const cols=[["numero","Nº"],["codigo","Registro"],["titulo","Título"],["subtitulo","Subtítulo"],["autores","Autores"],["organizador","Organizador"],["tradutor","Tradutor"],["titulo_original","Título original"],["editora","Editora"],["ano","Ano"],["edicao","Edição"],["isbn","ISBN"],["paginas","Páginas"],["categoria","Seção"],["serie","Série"],["assuntos","Assuntos"],["estante","Estante"],["prateleira","Prateleira"],["posicao","Posição"],["formato","Formato"],["conservacao","Conservação"],["status_leitura","Situação"],["avaliacao","Avaliação"],["emprestado_para","Emprestado para"],["pendencia","Pendência"],["sinopse","Sinopse"]];
+  const cell=v=>{v=Array.isArray(v)?v.join("; "):(v??"");if(v===true)v="Sim";v=String(v);return /[";\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v};
+  const rows=shelfOrder(filtered()).map(b=>cols.map(([k])=>cell(k==="status_leitura"?STATUS[b[k]||"nao"]:b[k])).join(";"));
+  const csv="﻿"+[cols.map(c=>c[1]).join(";"),...rows].join("\n");
+  if(downloads===undefined){ try{ downloads=await window.claude?.use?.("downloads") }catch(e){ downloads=null } }
+  if(downloads){ try{ await downloads.save({filename:`biblioteca-mario-rubens-${new Date().toISOString().slice(0,10)}.csv`,data:new Blob([csv],{type:"text/csv;charset=utf-8"})}); toast("Planilha pronta."); return }catch(e){ if(e&&e.code&&/declin|cancel/i.test(e.code)) return } }
+  try{ await navigator.clipboard.writeText(csv); toast("Planilha copiada. Cole no Excel ou no Google Planilhas.") }catch(e){ toast("Não foi possível exportar nesta visualização.") }
+}
+
+/* ---------- Eventos ---------- */
+document.addEventListener("click",e=>{
+  if(e.target.closest(".drawer")) return;
+  const ch=e.target.closest("[data-chip]"); if(ch){filt.chip=ch.dataset.chip;renderChips();renderList();renderSpines();if(ch.classList.contains("stat"))$("#list").scrollIntoView({behavior:"smooth",block:"start"});return}
+  const ct=e.target.closest("[data-cat]"); if(ct){filt.cat=filt.cat===ct.dataset.cat?"":ct.dataset.cat;renderChips();renderList();renderSpines();return}
+  const rw=e.target.closest(".row[data-id],.spine[data-id]"); if(rw){openBook(rw.dataset.id)}
+});
+$("#q").addEventListener("input",e=>{filt.q=e.target.value;renderList();renderSpines()});
+$("#fCat").addEventListener("change",e=>{filt.cat=e.target.value;renderList();renderSpines()});
+$("#fSort").addEventListener("change",e=>{filt.sort=e.target.value;renderList()});
+$("#btnNew").onclick=()=>{if(!db){toast("O acervo ainda está conectando.");return}newBook()};
+$("#btnPlan").onclick=()=>{if(!db){toast("O acervo ainda está conectando.");return}openPlan()};
+$("#btnRep").onclick=()=>{if(!db){toast("O acervo ainda está conectando.");return}openRep()};
+$("#btnArr").onclick=()=>{if(!db){toast("O acervo ainda está conectando.");return}openArr()};
+$("#btnOrg").onclick=()=>{if(!db){toast("O acervo ainda está conectando.");return}openOrg()};
+$("#photoIn").addEventListener("change",e=>{const f=e.target.files;if(f&&f.length)fromPhotos(f);e.target.value=""});
+$("#btnExport").onclick=exportCSV;
+const bkb=$("#btnBackup"); if(bkb) bkb.onclick=backupClaude;
+async function backupClaude(){
+  if(!books.length){toast("O acervo ainda está carregando.");return}
+  toast("Preparando a cópia de segurança…"); const capas={};
+  for(const b of books){ if(b.capa_id&&!capas[b.capa_id]){ try{ const r=await fetch("/_blob/"+b.capa_id); if(r.ok){ const bl=await r.blob(); capas[b.capa_id]=await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(bl)}) } }catch(e){} } }
+  const out={formato:"biblioteca-mario-rubens-backup",versao:1,gerado_em:new Date().toISOString(),livros:books.map(b=>{const {_capaPreview,...x}=b;return x}),capas,config:cfgDoc()};
+  const blob=new Blob([JSON.stringify(out)],{type:"application/json"}), nome=`backup-biblioteca-${new Date().toISOString().slice(0,10)}.json`;
+  if(downloads===undefined){ try{ downloads=await window.claude?.use?.("downloads") }catch(e){ downloads=null } }
+  try{ if(downloads){ await downloads.save({filename:nome,data:blob}) } else { const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=nome; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),3000) } toast(`Cópia com ${out.livros.length} livros e ${Object.keys(capas).length} capas pronta.`) }catch(e){ if(!(e&&e.code&&/declin|cancel/i.test(e.code))) toast("Não foi possível gerar a cópia agora.") }
+}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#drawerRoot").innerHTML)closeDrawer()});
+
+renderAll();
+
+/* ---------- Conexão ---------- */
+(async()=>{
+  try{ db=await window.claude?.use?.("db") }catch(e){ db=null }
+  if(!db){ $("#sync").textContent="Não foi possível conectar ao acervo."; renderAll(); return }
+  try{ const user=await window.claude.use("user"); const w=user?await user.can("data.write"):null; if(w===false) canWrite=false }catch(e){}
+  try{ assets=await window.claude.use("assets") }catch(e){ assets=null }
+  db.doc("config/geral").onSnapshot(snap=>{ if(snap.exists){ const d=snap.data(); cfg={...cfg,...d,ordem:Array.isArray(d.ordem)&&d.ordem.length?d.ordem.slice():cfg.ordem} } renderAll() },()=>{});
+  db.collection("livros").onSnapshot(snap=>{
+    books=snap.docs.map(d=>({id:d.id,...d.data()}));
+    $("#sync").textContent=`Acervo sincronizado · ${books.length} ${books.length===1?"livro":"livros"}`;
+    renderAll(); if(arrOpen) drawArr(); if(repOpen) drawRep(); if(planOpen) drawPlan();
+  },()=>{ $("#sync").textContent="A conexão com o acervo caiu. Recarregue a página." });
+})();
+})();
+</script>
+
+</body></html>
