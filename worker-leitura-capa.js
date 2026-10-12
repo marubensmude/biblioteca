@@ -1,5 +1,5 @@
 /* ============================================================
-   OPCIONAL · Cloudflare Worker para a leitura de capas por IA (Claude)
+   OPCIONAL · Cloudflare Worker para a IA (Claude): leitura de capas e resumos com pesquisa na internet
    Variáveis do Worker (Settings > Variables):
      ANTHROPIC_API_KEY  (secreta)  chave da API da Anthropic
      FIREBASE_API_KEY              o mesmo apiKey do firebase-config.js
@@ -19,11 +19,14 @@ export default {
     const user = chk.ok ? (await chk.json()).users?.[0] : null;
     if (!user || !PERMITIDOS.includes(user.email)) return new Response("Não autorizado", { status: 401, headers: cors });
     // 2) envia capa + pergunta ao Claude
-    const { prompt, images = [] } = await req.json();
+    const { prompt, images = [], web = false } = await req.json();
     const content = [...images.slice(0, 3).map(data => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } })), { type: "text", text: prompt }];
-    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" }, body: JSON.stringify({ model: env.MODEL, max_tokens: 2000, messages: [{ role: "user", content }] }) });
+    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" }, body: JSON.stringify({ model: env.MODEL, max_tokens: web ? 8000 : 2000, messages: [{ role: "user", content }], ...(web ? { tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }] } : {}) }) });
     if (!r.ok) return new Response(await r.text(), { status: r.status, headers: cors });
     const j = await r.json();
-    return new Response(JSON.stringify({ text: (j.content || []).map(c => c.text || "").join("") }), { headers: { ...cors, "content-type": "application/json" } });
+    const fontes = []; const vistos = new Set();
+    for (const c of (j.content || [])) if (c.type === "web_search_tool_result" && Array.isArray(c.content)) for (const f of c.content) if (f.url && !vistos.has(f.url)) { vistos.add(f.url); fontes.push({ url: f.url, titulo: f.title || "" }) }
+    const text = (j.content || []).filter(c => c.type === "text").map(c => c.text || "").join("");
+    return new Response(JSON.stringify({ text, fontes }), { headers: { ...cors, "content-type": "application/json" } });
   }
 };

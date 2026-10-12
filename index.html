@@ -262,6 +262,15 @@ select.f{border:1px solid var(--line);background:var(--surface);border-radius:6p
 .pq-d{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pq-a{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 @media (max-width:640px){.pq{grid-template-columns:26px minmax(0,1fr)}.pq-d{grid-column:2;text-align:left}.pq-a{grid-column:1/-1;justify-content:flex-start}}
+/* v9: resumo */
+.resumo{display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.65}
+.resumo h3{font-family:var(--f-display);font-size:21px;margin:14px 0 2px;padding-bottom:4px;border-bottom:1px solid var(--gold-soft)}
+.resumo p{margin:0 0 8px}
+.resumo blockquote{margin:6px 0;padding:12px 16px;border-left:3px solid var(--gold);background:var(--gold-soft);font-family:var(--f-display);font-size:19px;font-style:italic}
+.resumo ol.ideias{padding-left:22px;margin:0;display:flex;flex-direction:column;gap:8px}.resumo ol.ideias b{display:block;margin-bottom:2px}
+.resumo dl{margin:0;display:grid;grid-template-columns:minmax(120px,30%) 1fr;gap:6px 14px}.resumo dt{font-weight:700;color:var(--gold-ink)}.resumo dd{margin:0}
+@media (max-width:640px){.resumo dl{grid-template-columns:1fr}.resumo dd{margin-bottom:6px}}
+.resumo ul{margin:0;padding-left:20px}.resumo .fontes{font-size:13px}.resumo .fontes a{color:var(--ink)}
 </style>
 
 </head>
@@ -548,7 +557,9 @@ function body(){
     ${F("prefacio","Prefácio",{span:3})}${F("cdu","CDU / CDD",{span:3,mono:1})}
     ${F("assuntos","Assuntos",{list:1,hint:"Palavras-chave separadas por ponto e vírgula."})}
     ${F("sinopse","Sinopse",{type:"area"})}
+    ${cur._new?"":`<div class="fld"><button class="btn" type="button" id="goResumo">${cur.resumo?"Ver o resumo detalhado do livro":"Gerar resumo detalhado do livro"}</button></div>`}
   </div>`;
+  if(tab==="resumo") return resumoTab();
   if(tab==="exemplar") return `<div class="grid">
     ${F("numero","Nº de localização",{span:2,mono:1,hint:"Definido pela organização."})}${F("codigo","Registro (MR)",{span:2,mono:1})}${F("estante","Estante",{span:2})}
     <div class="fld s3"><label for="f_prateleira">Prateleira</label><input id="f_prateleira" data-k="prateleira" list="dlShelves" autocomplete="off" value="${esc(cur.prateleira||"")}" placeholder="Ex.: 1A"><datalist id="dlShelves">${shelves().map(x=>`<option value="${esc(x)}">`).join("")}</datalist></div>
@@ -589,7 +600,7 @@ function drawDrawer(){
       <div class="d-title"><span class="code">${cur.numero?`Nº ${esc(cur.numero)} · `:""}${esc(cur.codigo)}${cur.prateleira?` · prateleira ${esc(cur.prateleira)}`:""}</span>
         <h2>${esc(cur.titulo||"Novo livro")}</h2><p>${cur._new&&!cur.titulo?"Preencha a ficha abaixo":esc(authors(cur))}</p></div>
       <button class="x" type="button" id="btnClose" aria-label="Fechar">×</button></div>
-    <nav class="tabs">${[["ficha","Ficha bibliográfica"],["exemplar","Exemplar"],["leitura","Leitura"],["emprestimo","Empréstimo"]].map(([k,l])=>`<button type="button" class="tab ${tab===k?"on":""}" data-tab="${k}">${l}</button>`).join("")}</nav>
+    <nav class="tabs">${[["ficha","Ficha bibliográfica"],["resumo","Resumo"],["exemplar","Exemplar"],["leitura","Leitura"],["emprestimo","Empréstimo"]].map(([k,l])=>`<button type="button" class="tab ${tab===k?"on":""}" data-tab="${k}">${l}</button>`).join("")}</nav>
     <div class="d-body" id="dBody">${body()}</div>
     <div class="d-foot"><div class="grp" id="delGrp">${cur._new?"":`<button class="btn danger" type="button" id="btnDel">Excluir</button>`}</div>
       <div class="grp"><button class="btn ghost" type="button" id="btnCancel">Fechar</button><button class="btn primary" type="button" id="btnSave" ${canWrite?"":"disabled"}>${cur._new?"Cadastrar livro":"Salvar ficha"}</button></div></div>
@@ -617,6 +628,10 @@ function bindBody(){
   document.querySelectorAll("[data-star]").forEach(s=>s.onclick=()=>{const v=+s.dataset.star;cur.avaliacao=(+cur.avaliacao===v?0:v);document.querySelectorAll("[data-star]").forEach(x=>x.classList.toggle("on",+x.dataset.star<=cur.avaliacao))});
   const r=$("#btnReturn"); if(r) r.onclick=()=>{readFields();cur.historico_emprestimos=[...(cur.historico_emprestimos||[]),{para:cur.emprestado_para,de:cur.emprestado_em||"",ate:new Date().toISOString().slice(0,10)}];cur.emprestado_para="";cur.emprestado_em="";cur.devolucao_prevista="";$("#dBody").innerHTML=body();bindBody();toast("Devolução registrada. Salve a ficha para gravar.")};
   const sg=$("#btnSuggest"); if(sg) sg.onclick=suggest;
+  const gr=$("#goResumo"); if(gr) gr.onclick=()=>{readFields();tab="resumo";$("#dBody").innerHTML=body();document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x.dataset.tab==="resumo"));bindBody()};
+  const br=$("#btnResumo"); if(br) br.onclick=gerarResumo;
+  const rp=$("#resPdf"); if(rp) rp.onclick=()=>gerarDoc("pdf",resumoModel(cur));
+  const rw=$("#resWord"); if(rw) rw.onclick=()=>gerarDoc("docx",resumoModel(cur));
   const fs=$("#f_prateleira"), fp=$("#f_posicao");
   if(fs&&fp){ const upd=()=>{cur._shift=false;renderPosInfo()}; fs.addEventListener("input",upd); fp.addEventListener("input",upd); fs.addEventListener("blur",()=>{fs.value=normShelf(fs.value);renderPosInfo()}); renderPosInfo(); }
   const cat=$("#f_categoria"); if(cat) cat.onchange=()=>{readFields();$("#dBody").innerHTML=body();bindBody()};
@@ -1077,12 +1092,12 @@ function pdfFromModel(model,jsPDF){
   const footer=()=>{ const p=doc.internal.getCurrentPageInfo().pageNumber; doc.setDrawColor(...RPT.line); doc.setLineWidth(0.2); doc.line(M,H-14,W-M,H-14);
     doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...RPT.muted); doc.text("Biblioteca Mário Rubens · Ex libris, acervo pessoal",M,H-9); doc.text(`Página ${p} de {total}`,W-M,H-9,{align:"right"}) };
   header(true); let y=64;
-  if(model.filtros){ doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...RPT.muted); const l=doc.splitTextToSize(T("Critérios: "+model.filtros),W-2*M); doc.text(l,M,y); y+=l.length*4.2+3 }
+  if(model.filtros){ doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...RPT.muted); const l=doc.splitTextToSize(T((model.filtrosRotulo??"Critérios: ")+model.filtros),W-2*M); doc.text(l,M,y); y+=l.length*4.2+3 }
   // KPIs
   const per=5, gap=3, bw=(W-2*M-gap*(per-1))/per, bh=19;
   model.kpis.forEach(([v,l],i)=>{const r=Math.floor(i/per),c=i%per,x=M+c*(bw+gap),yy=y+r*(bh+gap);
     doc.setDrawColor(...RPT.gold); doc.setLineWidth(0.35); doc.setFillColor(255,255,255); doc.rect(x,yy,bw,bh,"FD"); doc.setFillColor(...RPT.gold); doc.rect(x,yy,1.2,bh,"F");
-    doc.setFont("times","bold"); doc.setFontSize(17); doc.setTextColor(...RPT.ink); doc.text(T(String(v)),x+5,yy+10);
+    { const sv=T(String(v)); doc.setFont("times","bold"); doc.setFontSize(sv.length>12?10.5:sv.length>9?13:17); doc.setTextColor(...RPT.ink); doc.text(sv,x+5,yy+10) }
     doc.setFont("helvetica","normal"); doc.setFontSize(6.8); doc.setTextColor(...RPT.muted); doc.text(T(String(l).toUpperCase()),x+5,yy+15.5,{charSpace:0.5})});
   y+=Math.ceil(model.kpis.length/per)*(bh+gap)+6;
   const ensure=h=>{ if(y+h>H-22){ doc.addPage(); header(false); y=22 } };
@@ -1138,7 +1153,7 @@ function docxFromModel(model,D){
   kids.push(new Table({width:{size:9900,type:WidthType.DXA},columnWidths:[9900],borders:{top:noB,bottom:{style:BorderStyle.SINGLE,size:18,color:GOLD},left:noB,right:noB,insideHorizontal:noB,insideVertical:noB},rows:[new TableRow({children:[new TableCell({shading:{type:ShadingType.CLEAR,fill:INK,color:"auto"},margins:{top:300,bottom:300,left:300,right:300},borders:{top:noB,bottom:noB,left:noB,right:noB},
     children:[p(run("EX LIBRIS · ACERVO PESSOAL",{size:15,bold:true,color:"D6B878",cs:30}),{after:120}),p(run(model.titulo,{font:"Georgia",size:44,bold:true,color:"FFFFFF"}),{after:80}),p(run(model.subtitulo,{font:"Georgia",size:22,italics:true,color:"D6B878"}),{after:0})]})]})]}));
   kids.push(p(run(""),{after:120}));
-  if(model.filtros) kids.push(p(run("Critérios: "+model.filtros,{size:17,color:MUT,italics:true}),{after:160}));
+  if(model.filtros) kids.push(p(run((model.filtrosRotulo??"Critérios: ")+model.filtros,{size:17,color:MUT,italics:true}),{after:160}));
   // KPIs em grade de 5
   const per=5, rowsK=[]; for(let i=0;i<model.kpis.length;i+=per){ const sl=model.kpis.slice(i,i+per); while(sl.length<per) sl.push(["",""]);
     rowsK.push(new TableRow({children:sl.map(([v,l])=>new TableCell({width:{size:1980,type:WidthType.DXA},margins:{top:80,bottom:80,left:120,right:80},
@@ -1302,6 +1317,85 @@ function buildPlano(){
   return {tipo:"plano",titulo:"Plano de Leitura",subtitulo:"Biblioteca Mário Rubens · "+dataHoje(),
     kpis:[[fmtN(P.itens.length),"Livros"],[fmtN(P.pags),"Páginas"],[P.mLiv+" min","Livros por dia"],[L.min_biblia+" min","Bíblia por dia"],[P.fim?P.fim.toLocaleDateString("pt-BR"):"-","Conclusão"]],
     secoes,conclusao:consid,conclusaoTitulo:"Considerações"};
+}
+
+/* ---------- Resumo detalhado do livro ---------- */
+let resumoCtl=null;
+const RES_CONF={alta:"Alta",media:"Média",baixa:"Baixa"};
+function resumoTab(){
+  const r=cur.resumo, web=!!window.CLAUDE_PROXY_URL;
+  if(cur._new) return `<div class="empty"><b>Salve o livro primeiro</b>O resumo é gerado para livros já cadastrados.</div>`;
+  const head=`<div class="callout info" style="flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px"><span><b>${r?"Resumo do livro":"Resumo detalhado"}</b><br><span class="hint">${r?fonteResumo(r):(web?"O Claude pesquisa o livro na internet e monta um resumo detalhado: visão geral, ideias centrais, estrutura, aplicações e leitura crítica.":"O Claude monta um resumo detalhado a partir do que conhece sobre a obra e dos dados desta ficha: visão geral, ideias centrais, estrutura, aplicações e leitura crítica.")}</span></span>
+    <span style="display:flex;gap:8px;flex-wrap:wrap">${r?`<button class="btn" type="button" id="resWord">Word</button><button class="btn" type="button" id="resPdf">PDF</button>`:""}<button class="btn ${r?"ghost":"primary"}" type="button" id="btnResumo" ${canWrite?"":"disabled"}>${r?"Gerar de novo":"Gerar resumo detalhado"}</button></span></div>`;
+  if(!r) return `<div style="display:flex;flex-direction:column;gap:14px">${head}<div class="empty"><b>Ainda sem resumo</b>Toque em “Gerar resumo detalhado”. Leva de 30 segundos a 2 minutos.</div></div>`;
+  const P=t=>String(t||"").split(/\n+/).filter(Boolean).map(x=>`<p>${esc(x)}</p>`).join("");
+  return `<div class="resumo">${head}
+    ${r.conhecido===false?`<div class="callout"><b>Obra pouco documentada</b><span>Não há informação suficiente sobre o conteúdo deste livro. O texto abaixo se apoia nos dados da ficha e deve ser lido como apresentação geral, não como resumo do conteúdo.</span></div>`:""}
+    ${r.tese_central?`<blockquote>${esc(r.tese_central)}</blockquote>`:""}
+    ${r.visao_geral?`<h3>Visão geral</h3>${P(r.visao_geral)}`:""}
+    ${(r.ideias_chave||[]).length?`<h3>Ideias centrais</h3><ol class="ideias">${r.ideias_chave.map(i=>`<li><b>${esc(i.titulo)}</b>${P(i.explicacao)}</li>`).join("")}</ol>`:""}
+    ${(r.estrutura||[]).length?`<h3>Como o livro se organiza</h3><dl>${r.estrutura.map(e=>`<dt>${esc(e.parte)}</dt><dd>${esc(e.resumo)}</dd>`).join("")}</dl>`:""}
+    ${(r.aplicacoes||[]).length?`<h3>Aplicações práticas</h3><ul>${r.aplicacoes.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>`:""}
+    ${r.para_quem?`<h3>Para quem é</h3>${P(r.para_quem)}`:""}
+    ${r.leitura_critica?`<h3>Leitura crítica</h3>${P(r.leitura_critica)}`:""}
+    ${r.sobre_o_autor?`<h3>Sobre o autor</h3>${P(r.sobre_o_autor)}`:""}
+    ${(r.fontes||[]).length?`<h3>Fontes consultadas</h3><ul class="fontes">${r.fontes.map(f=>`<li><a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.titulo||f.url)}</a></li>`).join("")}</ul>`:""}
+  </div>`;
+}
+function fonteResumo(r){
+  const d=r.gerado_em?new Date(r.gerado_em).toLocaleDateString("pt-BR"):"";
+  const base=r.origem==="web"?`Pesquisado na internet pelo Claude${(r.fontes||[]).length?` (${r.fontes.length} ${r.fontes.length===1?"fonte":"fontes"})`:""}`:r.origem==="chat"?"Pesquisado na internet pelo Claude, a pedido no chat":"Gerado pelo Claude com base no conhecimento sobre a obra, sem consulta à internet";
+  return `${base}${d?` em ${d}`:""}${r.confianca?` · confiança ${RES_CONF[r.confianca]||r.confianca}`:""}. Confira as informações antes de citar.`;
+}
+async function gerarResumo(){
+  const s=await getSample(); if(!s){toast("O resumo automático não está disponível nesta visualização.");return}
+  const web=!!window.CLAUDE_PROXY_URL, b=cur;
+  const ficha=[`Título: ${b.titulo}${b.subtitulo?": "+b.subtitulo:""}`,`Autor(es): ${authors(b)}`,b.editora&&`Editora: ${b.editora}`,b.ano&&`Ano: ${b.ano}`,b.isbn&&`ISBN: ${b.isbn}`,b.paginas&&`Páginas: ${b.paginas}`,b.categoria&&`Seção: ${b.categoria}`,(b.assuntos||[]).length&&`Assuntos: ${b.assuntos.join(", ")}`,b.sinopse&&`Sinopse da ficha: ${b.sinopse}`].filter(Boolean).join("\n");
+  const prompt=`Você é um curador literário que escreve resumos de leitura detalhados em português do Brasil, com linguagem clara e elegante.
+${web?"Pesquise este livro na internet (editora, livrarias, resenhas, entrevistas do autor) antes de escrever.":"Use o que você sabe sobre este livro."}
+
+FICHA DO LIVRO
+${ficha}
+
+Escreva um resumo detalhado e fiel ao conteúdo da obra. Regras:
+- Não invente capítulos, dados, histórias ou conceitos. Se não conhece o conteúdo do livro com segurança, defina "conhecido": false, explique apenas o que se pode afirmar pela ficha e pelo tema, e deixe "estrutura" vazia.
+- Não reproduza trechos longos do livro; parafraseie. No máximo uma frase curta entre aspas no total.
+- Não use travessão (—). Use vírgulas, dois pontos ou parênteses.
+- "visao_geral": 3 a 4 parágrafos separados por \\n. "ideias_chave": 5 a 8 itens, cada explicação com 2 a 4 frases. "estrutura": partes ou blocos de capítulos do livro, quando conhecidos. "aplicacoes": 4 a 6 aplicações práticas para a vida pessoal, profissional ou espiritual do leitor.
+
+Responda SOMENTE com um objeto JSON com as chaves:
+{"conhecido": true|false, "confianca": "alta"|"media"|"baixa", "tese_central": "uma frase", "visao_geral": "texto", "ideias_chave": [{"titulo": "", "explicacao": ""}], "estrutura": [{"parte": "", "resumo": ""}], "aplicacoes": [""], "para_quem": "texto", "leitura_critica": "pontos fortes e limites da obra", "sobre_o_autor": "texto curto"}`;
+  $("#busyRoot").innerHTML=`<div class="busy"><div class="box"><h3>Preparando o resumo<span class="dots"></span></h3><p class="note">${web?"O Claude está pesquisando o livro na internet e escrevendo o resumo.":"O Claude está escrevendo o resumo de"} <i>${esc(b.titulo)}</i>. Isso leva de 30 segundos a 2 minutos.</p><div style="display:flex;justify-content:flex-end"><button class="btn ghost" type="button" id="resCancel">Cancelar</button></div></div></div>`;
+  resumoCtl=new AbortController(); $("#resCancel").onclick=()=>{try{resumoCtl.abort()}catch(e){}};
+  try{
+    const opts={modelTier:"complex",signal:resumoCtl.signal}; if(web) opts.web=true;
+    const r=await s.json(prompt,opts);
+    if(!r||typeof r!=="object"||!(r.visao_geral||r.tese_central)) throw {code:"invalid_json"};
+    const clean=v=>typeof v==="string"?v.replace(/\s*—\s*/g,", "):Array.isArray(v)?v.map(clean):v&&typeof v==="object"?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,clean(x)])):v;
+    const res={...clean(r),origem:web?"web":"ia",fontes:(r._fontes||[]).slice(0,8),gerado_em:new Date().toISOString()}; delete res._fontes;
+    await db.collection("livros").doc(b.id).update({resumo:res,atualizado_em:new Date().toISOString()});
+    if(cur&&cur.id===b.id){ cur.resumo=res; if(tab==="resumo"){ $("#dBody").innerHTML=body(); bindBody() } }
+    toast("Resumo pronto e gravado na ficha.");
+  }catch(e){
+    const c=e&&e.code;
+    if(c!=="cancelled"&&!(e&&e.name==="AbortError")) toast(c==="not_granted"?"Permissão para usar o Claude não concedida nesta visualização.":c==="rate_limited"?"Muitos pedidos seguidos. Tente de novo em alguns minutos.":"Não foi possível gerar o resumo agora. Tente de novo.");
+  }finally{ $("#busyRoot").innerHTML=""; resumoCtl=null }
+}
+function resumoModel(b){
+  const r=b.resumo||{}, secoes=[];
+  if(r.conhecido===false) secoes.push({titulo:"Observação",texto:"Obra pouco documentada: o texto se apoia nos dados da ficha e deve ser lido como apresentação geral."});
+  if(r.tese_central) secoes.push({titulo:"Tese central",texto:r.tese_central});
+  if(r.visao_geral) secoes.push({titulo:"Visão geral",texto:String(r.visao_geral).replace(/\n+/g,"\n\n")});
+  if((r.ideias_chave||[]).length){ secoes.push({titulo:"Ideias centrais"}); r.ideias_chave.forEach((i,k)=>secoes.push({titulo:`${k+1}. ${i.titulo}`,nivel:2,texto:i.explicacao})) }
+  if((r.estrutura||[]).length) secoes.push({titulo:"Como o livro se organiza",tabela:{cols:[{h:"Parte",w:50},{h:"Conteúdo",w:124}],rows:r.estrutura.map(e=>[e.parte,e.resumo])}});
+  if((r.aplicacoes||[]).length) secoes.push({titulo:"Aplicações práticas",texto:r.aplicacoes.map(a=>"• "+a).join("\n")});
+  if(r.para_quem) secoes.push({titulo:"Para quem é",texto:r.para_quem});
+  if(r.sobre_o_autor) secoes.push({titulo:"Sobre o autor",texto:r.sobre_o_autor});
+  if((r.fontes||[]).length) secoes.push({titulo:"Fontes consultadas",texto:r.fontes.map(f=>`${f.titulo||""} ${f.url}`.trim()).join("\n")});
+  return {tipo:"resumo",filtrosRotulo:"",titulo:"Resumo de Leitura",subtitulo:`${b.titulo} · ${authors(b)}`,
+    filtros:`${b.titulo}${b.subtitulo?": "+b.subtitulo:""}. ${authors(b)}. ${[cleanEd(b.editora),b.ano].filter(Boolean).join(", ")}. ${fonteResumo(r)}`,
+    kpis:[[b.ano||"-","Ano"],[b.paginas?fmtN(b.paginas):"-","Páginas"],[STATUS[b.status_leitura||"nao"],"Leitura"],[hasPlace(b)?normShelf(b.prateleira)+"/"+b.posicao:"-","Local"],[RES_CONF[r.confianca]||"-","Confiança"]],
+    secoes,conclusao:r.leitura_critica||"",conclusaoTitulo:"Leitura crítica"};
 }
 
 /* ---------- Exportação ---------- */
